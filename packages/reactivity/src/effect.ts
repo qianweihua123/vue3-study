@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-26 16:51:01
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-28 20:17:24
+ * @LastEditTime: 2022-10-28 20:50:11
  * @FilePath: /vue3-study/packages/reactivity/src/effect.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -48,6 +48,13 @@ class ReactiveEffect {
 
         }
     }
+    stop(){
+        if(this.active){
+            //调用 stop 方法的时候可以清空此 effect 上的依赖
+            cleanupEffect(this)
+            this.active = false //变成失活状态
+        }
+    }
 }
 
 //track方法用来收集依赖
@@ -67,13 +74,17 @@ export function track(target, key) {
         depsMap.set(key, (dep = new Set()))
     }
     //最后将 effect 设置进入 set 结构
+    trackEffects(dep)
+
+}
+
+export function trackEffects(dep) {
     let shouldTrack = !dep.has(activeEffect)
     if (shouldTrack) {
         dep.add(activeEffect)
         //记录哪些属性存储了此 activeEffect
         activeEffect.deps.push(dep) // 后续需要通过effect来清理的时候可以去使用
     }
-
 }
 
 export function trigger(target, key, newValue, oldValue) {
@@ -87,24 +98,34 @@ export function trigger(target, key, newValue, oldValue) {
     let dep = depsMap.get(key)
     if (dep) {
         //将 dep拿一份出来去循环执行 run 方法，对比 effects和 dep 是false不相等的，独立的
-        const effects = [...dep]
-        effects.forEach(effect => {
-            // 当我重新执行此effect时，会将当前的effect放到全局上 activeEffect,防止多次执行此effct
-            //如果上一个还没有执行完这个时候activeEffect和下一个一样，就不用重复执行了
-            if (activeEffect != effect) {
-                if (!effect.scheduler) {
-                    effect.run()
-                } else {
-                    effect.scheduler();
-                }
-            }
-        });
+        triggerEffects(dep)
     }
 
+
+}
+
+export function triggerEffects(dep) {
+    const effects = [...dep]
+    effects.forEach(effect => {
+        // 当我重新执行此effect时，会将当前的effect放到全局上 activeEffect,防止多次执行此effct
+        //如果上一个还没有执行完这个时候activeEffect和下一个一样，就不用重复执行了
+        if (activeEffect != effect) {
+            if (!effect.scheduler) {
+                effect.run()
+            } else {
+                effect.scheduler();
+            }
+        }
+    });
 }
 export function effect(fn, options: any = {}) {
     // effect内部使用了 es6 的类来实现
     const _effect = new ReactiveEffect(fn, options.scheduler)
     //一进入程序默认执行一次传入的参数 fn
     _effect.run()
+    //此函数还需要返回用户传入的函数，调用可以执行，起始就是返回 run 方法
+    const runner = _effect.run.bind(_effect)
+    //并将此 effect 放到 runner 上
+    runner.effect = _effect
+    return runner
 }
