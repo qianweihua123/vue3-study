@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-26 16:51:01
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-28 19:53:52
+ * @LastEditTime: 2022-10-28 20:17:24
  * @FilePath: /vue3-study/packages/reactivity/src/effect.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -22,7 +22,7 @@ class ReactiveEffect {
     public deps = []
     public parent = undefined
 
-    constructor(public fn) {
+    constructor(public fn, private scheduler) {
 
     }
     run() {
@@ -88,16 +88,23 @@ export function trigger(target, key, newValue, oldValue) {
     if (dep) {
         //将 dep拿一份出来去循环执行 run 方法，对比 effects和 dep 是false不相等的，独立的
         const effects = [...dep]
-        let a = effects == dep ? true : false
         effects.forEach(effect => {
-            effect.run()
+            // 当我重新执行此effect时，会将当前的effect放到全局上 activeEffect,防止多次执行此effct
+            //如果上一个还没有执行完这个时候activeEffect和下一个一样，就不用重复执行了
+            if (activeEffect != effect) {
+                if (!effect.scheduler) {
+                    effect.run()
+                } else {
+                    effect.scheduler();
+                }
+            }
         });
     }
 
 }
-export function effect(fn) {
+export function effect(fn, options: any = {}) {
     // effect内部使用了 es6 的类来实现
-    const _effect = new ReactiveEffect(fn)
+    const _effect = new ReactiveEffect(fn, options.scheduler)
     //一进入程序默认执行一次传入的参数 fn
     _effect.run()
 }
