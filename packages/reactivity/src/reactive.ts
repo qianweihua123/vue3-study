@@ -3,7 +3,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-26 14:58:21
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-26 16:49:31
+ * @LastEditTime: 2022-10-29 09:48:21
  * @FilePath: /vue3-study/packages/reactivity/src/reactive.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -15,6 +15,10 @@ import { mutableHandlers } from './baseHandlers';
 export const enum ReactiveFlags {
     IS_REACTIVE = "__v_isReactive",
 }
+
+export function isReactive(target) {
+    return !!(target && target[ReactiveFlags.IS_REACTIVE]);
+  }
 
 //WeakMap key 只能是对象，并且 key 清空，值的引用也清楚，利用垃圾回收
 const reactiveMap = new WeakMap();

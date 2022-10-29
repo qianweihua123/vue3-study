@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-28 20:52:10
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-28 21:33:45
+ * @LastEditTime: 2022-10-29 16:52:47
  * @FilePath: /vue3-study/packages/reactivity/src/computed.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -41,7 +41,7 @@ export class ReactiveEffect {
            //有 scheduler会执行这儿，就会重置开关，如果一旦取值就会重新计算
            this._dirty = true;
            //如果在 effect 中使用了，还得通知这里面的 effec 去更新
-           triggerEffects(this.dep);
+           triggerEffects(this.dep || (this.dep = new Set()));
         })
     }
 

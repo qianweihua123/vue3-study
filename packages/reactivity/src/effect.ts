@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-26 16:51:01
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-28 21:03:44
+ * @LastEditTime: 2022-10-29 16:40:09
  * @FilePath: /vue3-study/packages/reactivity/src/effect.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -105,6 +105,7 @@ export function trigger(target, key, newValue, oldValue) {
 }
 
 export function triggerEffects(dep) {
+    // if(!dep.length) return
     const effects = [...dep]
     effects.forEach(effect => {
         // 当我重新执行此effect时，会将当前的effect放到全局上 activeEffect,防止多次执行此effct

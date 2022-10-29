@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "node scripts/dev.js reactivity -f esm",
+    "dev-core": "node scripts/dev.js runtime-core -f esm",
     "test": "jest"
   },
   "keywords": [],
