@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-30 11:52:31
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-30 16:45:09
+ * @LastEditTime: 2022-10-30 17:23:34
  * @FilePath: /vue3-study/packages/reactivity/src/ref.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -32,9 +32,9 @@ class RefImpl {
         return this._value
     }
 
-    set value(newValue){
+    set value(newValue) {
         //如果新老值不一样
-        if(newValue !== this.rawValue){
+        if (newValue !== this.rawValue) {
             //判断新设置的值是否是对象，是的话返回 proxy 对象，或者返回新值
             this._value = toReactive(newValue)
             this.rawValue = newValue//将新值变为老值
@@ -43,10 +43,33 @@ class RefImpl {
     }
 }
 
-// class ObjectRefImpl{
+class ObjectRefImpl {
+    _v_isRef = true;
+    constructor(public _object, public _key) {
 
-// }
+    }
+    get value() {
+        return this._object[this._key]
+    }
+    set value(newValue) {
+        this._object[this._key] = newValue
+    }
+}
 
-// export function toRef(target,key){
-//    return new ObjectRefImpl(target,key)
-// }
+//将单个的属性转为响应式对象
+export function toRef(target, key) {
+    return new ObjectRefImpl(target, key)
+}
+
+export function toRefs(object) {
+    const ret = {}
+    for (let key in object) {
+        ret[key] = toRef(object, key)
+    }
+
+    return ret
+}
+
+export function proxyRefs(objectWithRefs){
+
+}
