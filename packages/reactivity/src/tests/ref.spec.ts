@@ -3,13 +3,13 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-09-07 22:26:07
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-30 17:16:49
+ * @LastEditTime: 2022-10-30 17:43:00
  * @FilePath: /my-mini-vue/src/reactivity/tests/ref.spec.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { effect } from "../effect";
 import { reactive } from "../reactive";
-import { ref, toRef } from "../ref";
+import { ref, toRef ,proxyRefs} from "../ref";
 describe("ref", () => {
     it("happy path", () => {
         const a = ref(1);
@@ -72,24 +72,24 @@ describe("ref", () => {
     //     expect(unRef(1)).toBe(1);
     //   });
 
-    //   it("proxyRefs", () => {
-    //     const user = {
-    //       age: ref(10),
-    //       name: "xiaohong",
-    //     };
+      it("proxyRefs", () => {
+        const user = {
+          age: ref(10),
+          name: "xiaohong",
+        };
 
-    //     const proxyUser = proxyRefs(user);
-    //     expect(user.age.value).toBe(10);
-    //     expect(proxyUser.age).toBe(10);
-    //     expect(proxyUser.name).toBe("xiaohong");
+        const proxyUser = proxyRefs(user);
+        expect(user.age.value).toBe(10);
+        expect(proxyUser.age).toBe(10);
+        expect(proxyUser.name).toBe("xiaohong");
 
-    //     proxyUser.age = 20;
+        proxyUser.age = 20;
 
-    //     expect(proxyUser.age).toBe(20);
-    //     expect(user.age.value).toBe(20);
+        expect(proxyUser.age).toBe(20);
+        expect(user.age.value).toBe(20);
 
-    //     proxyUser.age = ref(10);
-    //     expect(proxyUser.age).toBe(10);
-    //     expect(user.age.value).toBe(10);
-    //   });
+        proxyUser.age = ref(10);
+        expect(proxyUser.age).toBe(10);
+        expect(user.age.value).toBe(10);
+      });
 });

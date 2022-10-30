@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-26 16:51:01
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-29 16:40:09
+ * @LastEditTime: 2022-10-30 17:44:23
  * @FilePath: /vue3-study/packages/reactivity/src/effect.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -48,8 +48,8 @@ export class ReactiveEffect {
 
         }
     }
-    stop(){
-        if(this.active){
+    stop() {
+        if (this.active) {
             //调用 stop 方法的时候可以清空此 effect 上的依赖
             cleanupEffect(this)
             this.active = false //变成失活状态
@@ -106,18 +106,20 @@ export function trigger(target, key, newValue, oldValue) {
 
 export function triggerEffects(dep) {
     // if(!dep.length) return
-    const effects = [...dep]
-    effects.forEach(effect => {
-        // 当我重新执行此effect时，会将当前的effect放到全局上 activeEffect,防止多次执行此effct
-        //如果上一个还没有执行完这个时候activeEffect和下一个一样，就不用重复执行了
-        if (activeEffect != effect) {
-            if (!effect.scheduler) {
-                effect.run()
-            } else {
-                effect.scheduler();
+    if (dep) {
+        const effects = [...dep]
+        effects.forEach(effect => {
+            // 当我重新执行此effect时，会将当前的effect放到全局上 activeEffect,防止多次执行此effct
+            //如果上一个还没有执行完这个时候activeEffect和下一个一样，就不用重复执行了
+            if (activeEffect != effect) {
+                if (!effect.scheduler) {
+                    effect.run()
+                } else {
+                    effect.scheduler();
+                }
             }
-        }
-    });
+        });
+    }
 }
 export function effect(fn, options: any = {}) {
     // effect内部使用了 es6 的类来实现
