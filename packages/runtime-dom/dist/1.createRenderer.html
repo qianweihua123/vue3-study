@@ -1,0 +1,44 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-03 18:58:56
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-03 19:06:00
+ * @FilePath: /vue3-study/packages/runtime-core/dist/1.createRenderer.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+
+        // runtime-dom (提供domapi)  runtime-core （虚拟节点）
+        // import { createRenderer, h, render } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { h, render } from './runtime-dom.esm.js'
+        let style = { color: 'red', background: 'blue' };
+        render(h('div', [h('span', '1'), h('span', '2')]), app)
+
+
+        setTimeout(() => {
+            render(h('div', 'hellow'), app)
+        }, 1000)
+
+
+        // h('div',{})
+        // h('div', 'hello')
+        // h('div', ['hello'])
+        // h('div', h('span'))
+
+
+    </script>
+</body>
+
+</html>

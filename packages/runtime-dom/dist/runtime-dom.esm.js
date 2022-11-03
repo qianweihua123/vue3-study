@@ -401,6 +401,7 @@ function createRenderer(options) {
 // packages/runtime-dom/src/index.ts
 var renderOptions = Object.assign(nodeOps, { patchProp });
 var render = (vnode, container) => {
+  debugger;
   return createRenderer(renderOptions).render(vnode, container);
 };
 export {
