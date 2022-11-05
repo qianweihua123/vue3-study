@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-03 18:58:56
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-03 19:06:00
+ * @LastEditTime: 2022-11-04 17:19:51
  * @FilePath: /vue3-study/packages/runtime-core/dist/1.createRenderer.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -22,20 +22,85 @@
 
         // runtime-dom (提供domapi)  runtime-core （虚拟节点）
         // import { createRenderer, h, render } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
-        import { h, render } from './runtime-dom.esm.js'
-        let style = { color: 'red', background: 'blue' };
-        render(h('div', [h('span', '1'), h('span', '2')]), app)
+        // import { h, render } from './runtime-dom.esm.js'
+        // let style = { color: 'red', background: 'blue' };
+        // render(h('div', [h('span', '1'), h('span', '2')]), app)
 
 
-        setTimeout(() => {
-            render(h('div', 'hellow'), app)
-        }, 1000)
+        // setTimeout(() => {
+        //     render(h('div', 'hellow'), app)
+        // }, 1000)
 
 
         // h('div',{})
         // h('div', 'hello')
         // h('div', ['hello'])
         // h('div', h('span'))
+        function getSequence(arr) {
+            debugger
+            let len = arr.length//获取传入数组的总长度
+            //默认连续的最终结果组成的索引
+            let result = [0]
+            let resultLastIndex;//用来下面循环传入数组的时候取出最后一项去和当前的比较
+
+
+            //新增的标识代码
+            let start
+            let end
+            let middle //中间位置的索引
+
+
+            //循环传入的数组
+            for (let i = 0; i < len; i++) {
+                //拿到当前的每一个
+                const arrI = arr[i]
+                //屏蔽为 0 的值
+                if (arrI !== 0) {
+                    //取出 result 数组中的最后一项
+                    resultLastIndex = result[result.length - 1]
+                    //取出 result 中最后一项的下标，去原数组中取到值，跟当前项去比较
+                    if (arr[resultLastIndex] < arrI) {
+                        //当前循环项比 result 最后一项的下标去原数组取出的值大
+                        //那就将当前的下标放到 result 中
+                        result.push(i) //这是正常情况下
+                        continue; //如果循环的当前项比结果集最后一个下标在 arr 中对应的值小，利用二分查找
+                    }
+
+
+                    //[0,1,2]
+                    start = 0 //开始的下标
+                    end = result.length - 1 //结果集的最后一项
+
+                    while (start < end) { //如果头尾重合就结束了
+                        middle = (start + end) / 2 | 0 //找到result 结果集中间的那一项，如果有小数的情况，向下取整，这个值给到 middle 就是result中间位置的索引
+                        if (arr[result[middle]] < arrI) {//拿到 result 中间的值去原数组取值，[2,5,8,4]等于是拿到数字 5 和4 去比较,如果中间项比当前循环项少(实际我们需要找到的是第一个比当前循环项大的数)，那等于前半部分不满足，去后半部分找，那就需要将 start指针改变，缩短范围
+                            start = middle + 1
+
+                        } else {
+
+                            //如果中间项比当前循环项大，就往前半部分找，我们要找的是第一个比当前循环项大的去替换，我们把尾部指针移动到中间缩短范围
+                            end = middle
+                        }
+
+
+
+                    }
+
+                    //等到跳出上面的 while 循环后，那就说明 start 和 end 重合了，循环内部在给 middle 赋值，所有最后 start,end是一样的。这个时候就得到结果了,这个 end就是第一个比当前值大的值，循环项小于这个 end 项，那就替换
+                        //[2,5,8] [2,5,8,4] 下面这个步骤就是将 4 的下标替换第一个比它大的数 5
+                        if (arrI < arr[result[end]]) {
+                            result[end] = i
+                        }
+
+                }
+            }
+            return result
+        }
+        //vue中序列不会出现 0，如果序列中出现 0 的话就忽略，因为我们做了映射表默认是 0，有复用的情况下会把这个 0 改掉
+        let a = getSequence([2, 5, 8, 4, 6, 7, 9, 3])
+        console.log(a);
+
+//上面的循环结束后得到[2,3,6,7,9],对应的下标是[0,7,4,5,6]
 
 
     </script>

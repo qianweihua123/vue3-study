@@ -295,7 +295,7 @@ function createRenderer(options) {
       unmount(children[i]);
     }
   };
-  const mountElement = (vnode, container) => {
+  const mountElement = (vnode, container, anchor) => {
     const { type, props, children, shapeFlag } = vnode;
     const el = vnode.el = hostCreateElement(type);
     if (props) {
@@ -308,7 +308,7 @@ function createRenderer(options) {
     } else if (shapeFlag & 8 /* TEXT_CHILDREN */) {
       hostSetElementText(el, children);
     }
-    hostInsert(el, container);
+    hostInsert(el, container, anchor);
   };
   const patchProps = (oldProps, newProps, el) => {
     if (oldProps !== newProps) {
@@ -328,6 +328,75 @@ function createRenderer(options) {
     }
   };
   const patchKeyedChildren = (c1, c2, el) => {
+    debugger;
+    let i = 0;
+    let e1 = c1.length - 1;
+    let e2 = c2.length - 1;
+    while (i <= e1 && i <= e2) {
+      const n1 = c1[i];
+      const n2 = c2[i];
+      if (isSameVNode(n1, n2)) {
+        patch(n1, n2, el);
+      } else {
+        break;
+      }
+      i++;
+    }
+    while (i <= e1 && i <= e2) {
+      const n1 = c1[e1];
+      const n2 = c2[e2];
+      if (isSameVNode(n1, n2)) {
+        patch(n1, n2, el);
+      } else {
+        break;
+      }
+      e1--;
+      e2--;
+    }
+    if (i > e1) {
+      if (i <= e2) {
+        while (i <= e2) {
+          const nextPos = e2 + 1;
+          const anchor = nextPos < c2.length ? c2[nextPos].el : null;
+          patch(null, c2[i], el, anchor);
+          i++;
+        }
+      }
+    } else if (i > e2) {
+      while (i <= e1) {
+        unmount(c1[i]);
+        i++;
+      }
+    }
+    let s1 = i;
+    let s2 = i;
+    const keyToNewIndexMap = /* @__PURE__ */ new Map();
+    for (let i2 = s2; i2 <= e2; i2++) {
+      const vnode = c2[i2];
+      keyToNewIndexMap.set(vnode.key, i2);
+    }
+    const toBePatched = e2 - s2 + 1;
+    const newIndexToOldMapIndex = new Array(toBePatched).fill(0);
+    for (let i2 = s1; i2 <= e1; i2++) {
+      const child = c1[i2];
+      let newIndex = keyToNewIndexMap.get(child.key);
+      if (newIndex == void 0) {
+        unmount(child);
+      } else {
+        newIndexToOldMapIndex[newIndex - s2] = i2 + 1;
+        patch(child, c2[newIndex], el);
+      }
+    }
+    for (let i2 = toBePatched - 1; i2 >= 0; i2--) {
+      const nextIndex = s2 + i2;
+      const nextChild = c2[nextIndex];
+      const anchor = nextIndex + 1 < c2.length ? c2[nextIndex + 1].el : null;
+      if (newIndexToOldMapIndex[i2] == 0) {
+        patch(null, nextChild, el, anchor);
+      } else {
+        hostInsert(nextChild.el, el, anchor);
+      }
+    }
   };
   const patchChildren = (n1, n2, el) => {
     const c1 = n1.children;
@@ -344,6 +413,7 @@ function createRenderer(options) {
     } else {
       if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
         if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+          console.log("\u65B0\u8001\u90FD\u662F\u513F\u5B50\u6BD4\u5BF9");
           patchKeyedChildren(c1, c2, el);
         } else {
           unmountChildren(c1);
@@ -365,14 +435,14 @@ function createRenderer(options) {
     patchProps(oldProps, newProps, el);
     patchChildren(n1, n2, el);
   };
-  const processElement = (n1, n2, container) => {
+  const processElement = (n1, n2, container, anchor) => {
     if (n1 == null) {
-      mountElement(n2, container);
+      mountElement(n2, container, anchor);
     } else {
       patchElement(n1, n2);
     }
   };
-  const patch = (n1, n2, container) => {
+  const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return;
     }
@@ -380,7 +450,7 @@ function createRenderer(options) {
       unmount(n1);
       n1 = null;
     }
-    processElement(n1, n2, container);
+    processElement(n1, n2, container, anchor);
   };
   const unmount = (vnode) => hostRemove(vnode.el);
   const render2 = (vnode, container) => {
