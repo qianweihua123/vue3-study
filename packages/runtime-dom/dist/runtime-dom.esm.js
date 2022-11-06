@@ -1,7 +1,6 @@
 // packages/runtime-dom/src/nodeOps.ts
 var nodeOps = {
   createElement(tageName) {
-    debugger;
     return document.createElement(tageName);
   },
   insert(child, parent, anchor) {
@@ -454,6 +453,13 @@ function createRenderer(options) {
       }
     }
   };
+  const processFragment = (n1, n2, el) => {
+    if (n1 == null) {
+      mountChildren(n2.children, el);
+    } else {
+      patchKeyedChildren(n1.children, n2.children, el);
+    }
+  };
   const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return;
@@ -465,8 +471,10 @@ function createRenderer(options) {
     let { shapeFlag, type } = n2;
     switch (type) {
       case Text:
-        debugger;
         processText(n1, n2, container);
+        break;
+      case Fragment:
+        processFragment(n1, n2, container);
         break;
       default:
         if (shapeFlag && 1 /* ELEMENT */) {
@@ -474,7 +482,12 @@ function createRenderer(options) {
         }
     }
   };
-  const unmount = (vnode) => hostRemove(vnode.el);
+  const unmount = (vnode) => {
+    if (vnode.type === Fragment) {
+      return unmountChildren(vnode.children);
+    }
+    hostRemove(vnode.el);
+  };
   const render2 = (vnode, container) => {
     if (vnode == null) {
       if (container._vnode) {

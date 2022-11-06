@@ -2,14 +2,14 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-02 14:21:53
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-06 11:51:32
+ * @LastEditTime: 2022-11-06 16:57:49
  * @FilePath: /vue3-study/packages/runtime-core/src/vnode.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { isObject, isString, ShapeFlags } from "@vue/shared";
 //申明 text 类型
 export const Text = Symbol("text");
-export const Fragment = Symbol("fragment");
+export const Fragment = Symbol("fragment"); //文档碎片
 
 export function isVNode(vnode) {
     return vnode.__v_isVnode == true;

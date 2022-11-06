@@ -1,5 +1,5 @@
 import { ShapeFlags } from "@vue/shared";
-import { isSameVNode,Text } from "./vnode";
+import { isSameVNode, Text, Fragment } from "./vnode";
 
 export function createRenderer(options) {
   const {
@@ -290,6 +290,23 @@ export function createRenderer(options) {
       }
     }
   }
+
+  const processFragment = (n1, n2, el) => {
+    if (n1 == null) {
+      //初始化调用 mountChildren,内部是调用 patch 方法，
+      /**
+      * @description 描述
+  const mountChildren = (children, el) => {
+    for (let i = 0; i < children.length; i++) {
+      patch(null, children[i], el);
+    }
+  };
+      */
+      mountChildren(n2.children, el)
+    } else { //如果n1 和n2都有值，那就相当于是比较双方的 children 节点
+      patchKeyedChildren(n1.children, n2.children, el)
+    }
+  }
   const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return; // 无需更新
@@ -304,10 +321,12 @@ export function createRenderer(options) {
     let { shapeFlag, type } = n2
     switch (type) {
       case Text:
-        debugger
         //处理文本消息
         processText(n1, n2, container)
         break;
+      case Fragment:
+        processFragment(n1, n2, container)
+        break
       default:
         if (shapeFlag && ShapeFlags.ELEMENT) {
           //处理元素节点
@@ -317,7 +336,13 @@ export function createRenderer(options) {
 
     // ...
   };
-  const unmount = (vnode) => hostRemove(vnode.el);
+  const unmount = (vnode) => {
+    // fragment卸载的时候  不是卸载的自己，而是他所有的儿子
+    if (vnode.type === Fragment) {
+      return unmountChildren(vnode.children);
+    }
+    hostRemove(vnode.el)
+  };
   const render = (vnode, container) => {
     if (vnode == null) {
       // 卸载：删除节点

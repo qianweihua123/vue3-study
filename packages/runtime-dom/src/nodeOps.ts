@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-02 09:47:17
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-06 11:59:51
+ * @LastEditTime: 2022-11-06 17:26:15
  * @FilePath: /vue3-study/packages/runtime-dom/src/nodeOps.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -11,7 +11,6 @@
 export const nodeOps = {
     //创建元素的方法
     createElement(tageName) {
-        debugger
         return document.createElement(tageName)
     },
     //移动节点的方法 anchor是锚点，parent 是父节点

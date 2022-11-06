@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-06 11:41:17
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-06 12:01:20
+ * @LastEditTime: 2022-11-06 17:36:57
  * @FilePath: /vue3-study/packages/runtime-dom/dist/3.text.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -32,8 +32,15 @@
             h('li', { key: 'f' }, 'f'),
             h('li', { key: 'g' }, 'g'),
         ]), app)
+        // setTimeout(() => {
+        //     render(h('div', [h(Text, 'aaa'), h('div', 'bbb')]), app)
+
+        //     setTimeout(() => {
+        //         render(null, app)
+        //     }, 3000)
+        // }, 1000)
         setTimeout(() => {
-            render(h('div', [h(Text, 'aaa'), h('div', 'bbb')]), app)
+            render(h(Fragment, [h(Text, 'aaa'), h('div', 'bbb')]), app)
 
             setTimeout(() => {
                 render(null, app)
