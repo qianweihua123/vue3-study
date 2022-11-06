@@ -1,6 +1,7 @@
 // packages/runtime-dom/src/nodeOps.ts
 var nodeOps = {
   createElement(tageName) {
+    debugger;
     return document.createElement(tageName);
   },
   insert(child, parent, anchor) {
@@ -220,6 +221,8 @@ function doWatch(source, cb, options) {
 }
 
 // packages/runtime-core/src/vnode.ts
+var Text = Symbol("text");
+var Fragment = Symbol("fragment");
 function isVNode(vnode) {
   return vnode.__v_isVnode == true;
 }
@@ -228,7 +231,7 @@ function isSameVNode(n1, n2) {
 }
 function createVNode(type, props = null, children = null) {
   var _a;
-  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : 0;
+  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
   const vnode = {
     __v_isVnode: true,
     type,
@@ -328,7 +331,6 @@ function createRenderer(options) {
     }
   };
   const patchKeyedChildren = (c1, c2, el) => {
-    debugger;
     let i = 0;
     let e1 = c1.length - 1;
     let e2 = c2.length - 1;
@@ -442,6 +444,16 @@ function createRenderer(options) {
       patchElement(n1, n2);
     }
   };
+  const processText = (n1, n2, el) => {
+    if (n1 == null) {
+      hostInsert(n2.el = hostCreateText(n2.children), el);
+    } else {
+      let el2 = n2.el = n1.el;
+      if (n1.children !== n2.children) {
+        hostSetText(el2, n2.children);
+      }
+    }
+  };
   const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return;
@@ -450,7 +462,17 @@ function createRenderer(options) {
       unmount(n1);
       n1 = null;
     }
-    processElement(n1, n2, container, anchor);
+    let { shapeFlag, type } = n2;
+    switch (type) {
+      case Text:
+        debugger;
+        processText(n1, n2, container);
+        break;
+      default:
+        if (shapeFlag && 1 /* ELEMENT */) {
+          processElement(n1, n2, container, anchor);
+        }
+    }
   };
   const unmount = (vnode) => hostRemove(vnode.el);
   const render2 = (vnode, container) => {
@@ -471,10 +493,11 @@ function createRenderer(options) {
 // packages/runtime-dom/src/index.ts
 var renderOptions = Object.assign(nodeOps, { patchProp });
 var render = (vnode, container) => {
-  debugger;
   return createRenderer(renderOptions).render(vnode, container);
 };
 export {
+  Fragment,
+  Text,
   createRenderer,
   createVNode,
   h,

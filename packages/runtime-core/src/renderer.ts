@@ -1,5 +1,5 @@
 import { ShapeFlags } from "@vue/shared";
-import { isSameVNode } from "./vnode";
+import { isSameVNode,Text } from "./vnode";
 
 export function createRenderer(options) {
   const {
@@ -64,7 +64,6 @@ export function createRenderer(options) {
     }
   };
   const patchKeyedChildren = (c1, c2, el) => {
-    debugger
     // 全量的diff算法  比对过程是深度遍历，先遍历父亲 在遍历孩子 从父-> 子 都要比对一遍
     // 目前没有优化比对，没有关心 只比对变化的部分 blockTree patchFlags
     // 同级比对 父和父比  子和子比  孙子和孙子比  采用的是深度遍历e
@@ -278,6 +277,19 @@ export function createRenderer(options) {
       patchElement(n1, n2);
     }
   };
+  const processText = (n1, n2, el) => {
+    if (n1 == null) {
+      //初次渲染文本节点,那就创建节点放到 n2 的 el 上去记录上，并且插入到真实节点
+      hostInsert(n2.el = hostCreateText(n2.children), el);
+    } else {
+      let el = (n2.el = n1.el) //因为这个方法都是处理文本节点，我们可以复用老的真实节点
+      //然后去更新Text文本的值，这个值是存在 children 上的
+      if (n1.children !== n2.children) {
+        //文本值不一样的话，那就新建去插入
+        hostSetText(el, n2.children)
+      }
+    }
+  }
   const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return; // 无需更新
@@ -289,7 +301,20 @@ export function createRenderer(options) {
       unmount(n1); // 删除节点
       n1 = null;
     }
-    processElement(n1, n2, container, anchor);
+    let { shapeFlag, type } = n2
+    switch (type) {
+      case Text:
+        debugger
+        //处理文本消息
+        processText(n1, n2, container)
+        break;
+      default:
+        if (shapeFlag && ShapeFlags.ELEMENT) {
+          //处理元素节点
+          processElement(n1, n2, container, anchor);
+        }
+    }
+
     // ...
   };
   const unmount = (vnode) => hostRemove(vnode.el);

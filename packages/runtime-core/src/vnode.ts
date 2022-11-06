@@ -2,11 +2,14 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-02 14:21:53
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-02 16:54:45
+ * @LastEditTime: 2022-11-06 11:51:32
  * @FilePath: /vue3-study/packages/runtime-core/src/vnode.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-import { isString, ShapeFlags } from "@vue/shared";
+import { isObject, isString, ShapeFlags } from "@vue/shared";
+//申明 text 类型
+export const Text = Symbol("text");
+export const Fragment = Symbol("fragment");
 
 export function isVNode(vnode) {
     return vnode.__v_isVnode == true;
@@ -18,7 +21,16 @@ export function isSameVNode(n1, n2) {
 
 //type其实就是标签名
 export function createVNode(type, props = null, children = null) {
-    const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : 0;
+    // 组件
+    // 元素
+    // 文本
+    // 自定义的keep-alive..
+    // 用标识来区分 对应的虚拟节点类型 ， 这个表示采用的是位运算的方式 可以方便组合
+    const shapeFlag = isString(type)
+        ? ShapeFlags.ELEMENT
+        : isObject(type)
+            ? ShapeFlags.COMPONENT
+            : 0;
     // 虚拟节点要对应真实节点
     const vnode = {
         __v_isVnode: true, // 添加标识是不是vnode
