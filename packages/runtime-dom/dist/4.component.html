@@ -1,0 +1,64 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-06 21:11:43
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-06 21:11:53
+ * @FilePath: /vue3-study/packages/runtime-dom/dist/4.component.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+        // runtime-dom (提供domapi)  runtime-core （虚拟节点）
+        //import { createRenderer, h, render, Text, Fragment, getCurrentInstance } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { h, render, Text, Fragment } from './runtime-dom.esm.js'
+
+        // attrs =  所有的属性 - propsOptions
+        // props = propsOptions
+        // props 用户接收的属性 , attrs 用户没接收的属性
+
+        const VueComponent = {
+            props: { // propOptions
+                a: Number
+            },
+            data() {
+                return { age: 30, name: 'jw' }
+            },
+            render() { // effect  响应式数据的关系
+                // 更新逻辑不能写在render
+                // console.log(this.$attrs, this.$props)
+
+                setTimeout(() => {
+                    this.age++
+                    this.age++
+                    this.age++
+                }, 1000)
+
+                return h('div', [h(Text, this.age), h(Text, this.name), h(Text, this.a)])
+            }
+        }
+        // type === 'object' 就是组件了
+        render(h(VueComponent, { a: 1, b: 2, c: 3 }), app)
+
+
+        // 我们没创建一个组件 都要有一个独立的数据源，如果是对象会导致组件共享数据
+
+    </script>
+</body>
+
+</html>
+
+<template>
+    <div></div>
+    <div></div>
+</template>

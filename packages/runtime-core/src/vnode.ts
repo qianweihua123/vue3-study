@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-02 14:21:53
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-06 16:57:49
+ * @LastEditTime: 2022-11-07 10:22:58
  * @FilePath: /vue3-study/packages/runtime-core/src/vnode.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -21,6 +21,7 @@ export function isSameVNode(n1, n2) {
 
 //type其实就是标签名
 export function createVNode(type, props = null, children = null) {
+    debugger
     // 组件
     // 元素
     // 文本

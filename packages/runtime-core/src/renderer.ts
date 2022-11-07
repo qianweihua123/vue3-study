@@ -1,6 +1,9 @@
-import { ShapeFlags } from "@vue/shared";
+import { reactive } from "@vue/reactivity";
+import { ShapeFlags, hasOwn } from "@vue/shared";
+import { ReactiveEffect } from "packages/reactivity/src/effect";
+import { initProps } from "./componentProps";
 import { isSameVNode, Text, Fragment } from "./vnode";
-
+import { queueJob } from "./scheduler"
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -307,6 +310,116 @@ export function createRenderer(options) {
       patchKeyedChildren(n1.children, n2.children, el)
     }
   }
+
+  const mountComponent = (vnode, container, anchor) => {
+    // 如何挂载组件？  vnode 指代的是组件的虚拟节点  subTree render函数返回的虚拟节点
+    //组件虚拟节点的 type 上有 render,props等配置信息
+    const { data = () => ({}), render, props: propsOptions = {} } = vnode.type;
+    const state = reactive(data()); // 将数据变成响应式的
+    //定义一个对象代表组件实例的对象
+    const instance = {
+      // 组件的实例
+      data: state,
+      isMounted: false,
+      subTree: null,
+      vnode,
+      update: null, // 组件的更新方法 effect.run()
+      props: {},
+      attrs: {},
+      propsOptions,
+      proxy: null,
+    };
+    //组件的虚拟节点上增加 component 属性，记住当前的组件实例
+    vnode.component = instance; // 让虚拟节点知道对应的组件是谁
+    //初始化 props
+    // instance.propsOptions 用户接受了哪些属性的列表 ，  vnode.props
+    initProps(instance, vnode.props);
+    //在组件实例对象上新增一个 proxy 对象，当我们访问实例对象上的，
+    const publicProperties = {
+      $attrs: (i) => i.attrs,
+      $props: (i) => i.props,
+    };
+    //data 或者 props 里面的值的时候，建议一个映射返回关系
+    instance.proxy = new Proxy(instance, {
+      get(target, key) {
+        //从实例对象上拿到 data,props
+        let { data, props } = target
+        if (hasOwn(key, data)) {
+          //当我们访问 instance 上 proxy 的属性的时候，我们先去
+          //data上查找有没有这个 key 的，有的话，我们返回 data 上的
+          return data[key];
+        } else if (hasOwn(key, props)) {
+          //如果 data 上没有，再去 props 上查找，有的话，返回 props 上的值
+          return props[key];
+        }
+        //将$attrs,$props维护到一个对象，如果取值就从对象中执行函数
+        let getter = publicProperties[key];
+        if (getter) {
+          return getter(target);
+        }
+      },
+      set(target, key, value) {
+        //当我们设置值的时候，也是先去优先设置 data上的，props 上的不允许改，弹出提醒
+        let { data, props } = target;
+        if (hasOwn(key, data)) {
+          data[key] = value;
+        } else if (hasOwn(key, props)) {
+          console.log("warn ");
+          return false;
+        }
+        return true;
+      },
+    })
+
+    //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
+    //也就是 effect.run()执行的
+    const componentFn = () => {
+      if (!instance.isMounted) {
+        // 这里会做依赖收集，数据变化会再次调用effect
+        //得到组件的节点树
+        const subTree = render.call(instance.proxy);
+        //然后通过 patch 将组件内部的节点树变成真实的节点
+        patch(null, subTree, container, anchor);
+        //将第一次渲染的节点树保存起来
+        instance.subTree = subTree; // 第一次渲染产生的vnode
+        //标识下已经挂载过
+        instance.isMounted = true;
+      } else {
+        //已经挂载过更新的情况
+        //拿到新的节点树虚拟 dom
+        const subTree = render.call(instance.proxy);
+        //进行 patch 更新
+        patch(instance.subTree, subTree, container, anchor);
+        //保存这一次的虚拟节点树
+        instance.subTree = subTree;
+      }
+    }
+    //生成一个组件 effect,第二个参数相当于 scheduler,c
+    //初次执行 render 后里面的变量收集了这个组件 effect
+    //当变量的值改变的时候，就会触发更新 effect，
+    //有 scheduler的话会执行 scheduler
+    //这个时候如果频繁更新，将会多次执行scheduler，这个时候就需要异步更新
+    const effect = new ReactiveEffect(componentFn, () => {
+      // 我需要做异步更新
+      queueJob(instance.update);
+    });
+    //将 effect的 run 方法绑定到 effect 上返回一个新的返回，去调用执行
+    const update = (instance.update = effect.run.bind(effect));
+    update(); // 强制更新
+  }
+
+  const processComponent = (n1, n2, container, anchor = null) => {
+    if (n1 === null) {
+      //我们在初始化组件的时候，分为出渲染
+      mountComponent(n2, container, anchor)
+    } else {
+      // 更新
+      // 组件更新  指代的是组件的属性 更新、插槽更新,render的更新已经在 proxy 中自动触发了
+      let instance = (n2.component = n1.component);
+      instance.props.a = n2.props.a;
+    }
+
+  }
   const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return; // 无需更新
@@ -328,9 +441,12 @@ export function createRenderer(options) {
         processFragment(n1, n2, container)
         break
       default:
-        if (shapeFlag && ShapeFlags.ELEMENT) {
+        if (shapeFlag & ShapeFlags.ELEMENT) {
           //处理元素节点
           processElement(n1, n2, container, anchor);
+        } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          //处理组件节点
+          processComponent(n1, n2, container, anchor);
         }
     }
 
@@ -364,3 +480,4 @@ export function createRenderer(options) {
     render,
   };
 }
+

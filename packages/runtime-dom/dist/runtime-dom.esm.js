@@ -125,6 +125,8 @@ function isFunction(value) {
 function isString(value) {
   return typeof value === "string";
 }
+var ownProperty = Object.prototype.hasOwnProperty;
+var hasOwn = (key, value) => ownProperty.call(value, key);
 
 // packages/reactivity/src/effect.ts
 var activeEffect;
@@ -163,10 +165,90 @@ var ReactiveEffect = class {
     }
   }
 };
+var targetMap = /* @__PURE__ */ new WeakMap();
+function track(target, key) {
+  if (!activeEffect)
+    return;
+  let depsMap = targetMap.get(target);
+  if (!depsMap) {
+    targetMap.set(target, depsMap = /* @__PURE__ */ new Map());
+  }
+  let dep = depsMap.get(key);
+  if (!dep) {
+    depsMap.set(key, dep = /* @__PURE__ */ new Set());
+  }
+  trackEffects(dep);
+}
+function trackEffects(dep) {
+  let shouldTrack = !dep.has(activeEffect);
+  if (shouldTrack) {
+    dep.add(activeEffect);
+    activeEffect.deps.push(dep);
+  }
+}
+function trigger(target, key, newValue, oldValue) {
+  let depsMap = targetMap.get(target);
+  if (!depsMap) {
+    return;
+  }
+  let dep = depsMap.get(key);
+  if (dep) {
+    triggerEffects(dep);
+  }
+}
+function triggerEffects(dep) {
+  if (dep) {
+    const effects = [...dep];
+    effects.forEach((effect) => {
+      if (activeEffect != effect) {
+        if (!effect.scheduler) {
+          effect.run();
+        } else {
+          effect.scheduler();
+        }
+      }
+    });
+  }
+}
+
+// packages/reactivity/src/baseHandlers.ts
+var mutableHandlers = {
+  get(target, key, receiver) {
+    if ("__v_isReactive" /* IS_REACTIVE */ == key) {
+      return true;
+    }
+    track(target, key);
+    return Reflect.get(target, key, receiver);
+  },
+  set(target, key, value, receiver) {
+    let oldValue = target[key];
+    let result = Reflect.set(target, key, value, receiver);
+    if (oldValue != value) {
+      trigger(target, key, value, oldValue);
+    }
+    return result;
+  }
+};
 
 // packages/reactivity/src/reactive.ts
 function isReactive(target) {
   return !!(target && target["__v_isReactive" /* IS_REACTIVE */]);
+}
+var reactiveMap = /* @__PURE__ */ new WeakMap();
+function reactive(target) {
+  if (!isObject(target)) {
+    return target;
+  }
+  if (target["__v_isReactive" /* IS_REACTIVE */]) {
+    return target;
+  }
+  const exisitsProxy = reactiveMap.get(target);
+  if (exisitsProxy) {
+    return exisitsProxy;
+  }
+  const proxy = new Proxy(target, mutableHandlers);
+  reactiveMap.set(target, proxy);
+  return proxy;
 }
 
 // packages/runtime-core/src/apiWatch.ts
@@ -230,6 +312,7 @@ function isSameVNode(n1, n2) {
 }
 function createVNode(type, props = null, children = null) {
   var _a;
+  debugger;
   const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
   const vnode = {
     __v_isVnode: true,
@@ -273,6 +356,47 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
+
+// packages/runtime-core/src/componentProps.ts
+function initProps(instance, rawProps) {
+  const props = {};
+  const attrs = {};
+  const options = instance.propsOptions;
+  if (rawProps) {
+    for (let key in rawProps) {
+      const value = rawProps[key];
+      if (key in options) {
+        props[key] = value;
+      } else {
+        attrs[key] = value;
+      }
+    }
+  }
+  instance.props = reactive(props);
+  instance.attrs = attrs;
+}
+
+// packages/runtime-core/src/scheduler.ts
+var queue = [];
+var isFlushing = false;
+var resolvePromise = Promise.resolve();
+var queueJob = (job) => {
+  if (!queue.includes(job)) {
+    queue.push(job);
+  }
+  if (!isFlushing) {
+    isFlushing = true;
+    resolvePromise.then(() => {
+      isFlushing = false;
+      let copy = queue.slice(0);
+      queue.length = 0;
+      for (let i = 0; i < copy.length; i++) {
+        const job2 = copy[i];
+        job2();
+      }
+    });
+  }
+};
 
 // packages/runtime-core/src/renderer.ts
 function createRenderer(options) {
@@ -460,6 +584,76 @@ function createRenderer(options) {
       patchKeyedChildren(n1.children, n2.children, el);
     }
   };
+  const mountComponent = (vnode, container, anchor) => {
+    const { data = () => ({}), render: render3, props: propsOptions = {} } = vnode.type;
+    const state = reactive(data());
+    const instance = {
+      data: state,
+      isMounted: false,
+      subTree: null,
+      vnode,
+      update: null,
+      props: {},
+      attrs: {},
+      propsOptions,
+      proxy: null
+    };
+    vnode.component = instance;
+    initProps(instance, vnode.props);
+    const publicProperties = {
+      $attrs: (i) => i.attrs,
+      $props: (i) => i.props
+    };
+    instance.proxy = new Proxy(instance, {
+      get(target, key) {
+        let { data: data2, props } = target;
+        if (hasOwn(key, data2)) {
+          return data2[key];
+        } else if (hasOwn(key, props)) {
+          return props[key];
+        }
+        let getter = publicProperties[key];
+        if (getter) {
+          return getter(target);
+        }
+      },
+      set(target, key, value) {
+        let { data: data2, props } = target;
+        if (hasOwn(key, data2)) {
+          data2[key] = value;
+        } else if (hasOwn(key, props)) {
+          console.log("warn ");
+          return false;
+        }
+        return true;
+      }
+    });
+    const componentFn = () => {
+      if (!instance.isMounted) {
+        const subTree = render3.call(instance.proxy);
+        patch(null, subTree, container, anchor);
+        instance.subTree = subTree;
+        instance.isMounted = true;
+      } else {
+        const subTree = render3.call(instance.proxy);
+        patch(instance.subTree, subTree, container, anchor);
+        instance.subTree = subTree;
+      }
+    };
+    const effect = new ReactiveEffect(componentFn, () => {
+      queueJob(instance.update);
+    });
+    const update = instance.update = effect.run.bind(effect);
+    update();
+  };
+  const processComponent = (n1, n2, container, anchor = null) => {
+    if (n1 === null) {
+      mountComponent(n2, container, anchor);
+    } else {
+      let instance = n2.component = n1.component;
+      instance.props.a = n2.props.a;
+    }
+  };
   const patch = (n1, n2, container, anchor = null) => {
     if (n1 == n2) {
       return;
@@ -477,8 +671,10 @@ function createRenderer(options) {
         processFragment(n1, n2, container);
         break;
       default:
-        if (shapeFlag && 1 /* ELEMENT */) {
+        if (shapeFlag & 1 /* ELEMENT */) {
           processElement(n1, n2, container, anchor);
+        } else if (shapeFlag & 6 /* COMPONENT */) {
+          processComponent(n1, n2, container, anchor);
         }
     }
   };
