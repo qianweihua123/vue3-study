@@ -138,7 +138,7 @@ export function createRenderer(options) {
     // a b      i = 2  e1 = 3  e2= 1
     //  c d a b
     //      a b   i=0     e1=1   e2=-1
-    else if (i > e2) {
+    else if (i > e2) { //i 如果大于e2说明有卸载的情况
       while (i <= e1) {
         unmount(c1[i]);
         i++;
@@ -152,6 +152,7 @@ export function createRenderer(options) {
     // c d e
     // e c d h
 
+    //剩下的就是无序的一组区间的对比
     let s1 = i; // s1 -> e1
     let s2 = i; // s2 -> e2
 
@@ -161,14 +162,14 @@ export function createRenderer(options) {
 
     const keyToNewIndexMap = new Map();
     //循环 i 到e2 之间，这个e2 是新节点，生成一个 map 映射记录
-    for (let i = s2; i <= e2; i++) {
-      const vnode = c2[i];
+    for (let i = s2; i <= e2; i++) { //循环新的虚拟节点中i 到 e2 之间的节点（这个时候头尾的比对都走过了）
+      const vnode = c2[i];  //拿出虚拟节点的 key 和下标去做一个映射
       keyToNewIndexMap.set(vnode.key, i);
     }
     // 有了新的映射表后，去老的中查找一下，看一下是否存在，如果存在需要复用了
 
-    // a b c d e   f g
-    // a b e c d h f g
+    // a b  c d e    f g
+    // a b  e c d h  f g
 
     // h f
     // d h f
@@ -176,44 +177,64 @@ export function createRenderer(options) {
     // e c d h f
     const toBePatched = e2 - s2 + 1; //这个是循环下来无法正常比对新 vnode 里面节点的长度
     const newIndexToOldMapIndex = new Array(toBePatched).fill(0); // [0,0,0,0]
-    for (let i = s1; i <= e1; i++) {
+    for (let i = s1; i <= e1; i++) { //循环无序的老的节点
       const child = c1[i];
       let newIndex = keyToNewIndexMap.get(child.key); // 通过老的key 来查找对应的新的索引
       // 如果newIndex有值说明有
       if (newIndex == undefined) {
-        // 老的里面有 新的没有
+        // 老的里面有 新的没有 那就去 el 上卸载掉
         unmount(child);
       } else {
         // 比对两个属性
         // 如果前后两个能复用，则比较这两个节点
-        newIndexToOldMapIndex[newIndex - s2] = i + 1;
-        patch(child, c2[newIndex], el); // 这个地方复用了
+        newIndexToOldMapIndex[newIndex - s2] = i + 1; //在新节点辅助数组中，记录下老的下标+1，之所以加 1 是因为 0 的话没有意义，0 代表新增的节点
+        patch(child, c2[newIndex], el); // 这个地方复用了，插入到了真实节点中
       }
     }
+    // return
     // 写到这里 我们已经复用了节点，并且更新了复用节点的属性，差移动操作，和新的里面有老的中没有的操作
     // 如何知道 新的里面有 老的里面没有 （老的没有映射表）
 
     // [5, 3, 4, 0]  对应的位置就是 老索引+1
-
-    for (let i = toBePatched - 1; i >= 0; i--) {
+    // 最长递增子序列是用来移动优化的
+    const seq = getSequence(newIndexToOldMapIndex);
+    //newIndexToOldMapIndex是一个数组，值是能复用的老节点的下标+1，或者 0
+    //调用getSequence函数后返回的是一个下标，这个下标最长递增子序列后，并追溯后的下标
+    //seq[j]取到的是下标，这个下标是由newIndexToOldMapIndex变化得到的，seq长度和下面的toBePatched一样
+    //seq的存储的值是下标，这个下标其实和下面的循环toBePatched i是一样的，不过 seq 存储过的被最长递增算法和追溯算法处理过了
+    let j = seq.length - 1; // 获取seq最后的索引
+    for (let i = toBePatched - 1; i >= 0; i--) {//i 的初始值是新虚拟 dom 的最后一项
       //这里的s2 是 i跳出循环的第一项let s2 = i; // s2 -> e2
       //s2 加上    const toBePatched = e2 - s2 + 1  toBePatched是乱序比对元素的长度 i是长度减去 1，这时候拿到乱序比对的最后一项
       //也就是下面的nextIndex
-      const nextIndex = s2 + i; // 下一个元素的索引 //这个值根据循环会一直变化，所有可以更换锚点
+      const nextIndex = s2 + i; // 循环的当前项 下一个元素的索引 //这个值根据循环会一直变化，所有可以更换锚点
       const nextChild = c2[nextIndex]; // 先拿到的h  根据我们上面说的需要乱序比对的最后一项的索引取到值
       // 看一下 h 后面是否有值 ，有值就将h 插入到这个元素的前面，没有值就是appendChild
       const anchor = nextIndex + 1 < c2.length ? c2[nextIndex + 1].el : null; //看下乱序比对最后一项后面是否有值，有值的话那就拿到作为锚点，没有的话说明乱序比对最后一项元素就是最后一个了，锚点就是 null，传入的话就是追加
       // 默认找到f 把 h 插入到f前面
       //   a b [e c d h] f g
       if (newIndexToOldMapIndex[i] == 0) { //如果当前循环项在新值映射表里面值是 0，说明没有能复用的，那我们就通过调用 patch 去创建，（第一个参数传空，说明是新建）
+        //   insert(child, parent, anchor) {
+        //insertBefore这个方法是移动性的     A B C D  -> A C B  D
+        // parent.insertBefore(child, anchor || null); 会去父元素中找到这个锚点插入
+      // },
         patch(null, nextChild, el, anchor); // 将h插入到 f前面
         // 找到新增的了
         // 创建元素在插入
       } else {
+        debugger
         // 直接做插入操作即可
         //  倒序插入
-        hostInsert(nextChild.el, el, anchor); // insert是移动节点 //如果值不为 0 的话，那就直接以锚点为基准去插入
-
+        //这个方法会移动节点比如移动前位置 abcdehfg ，实际我们 d 需要移动到h前面，
+        //移动后变成 abcedhfg，之所以能移动是因为 insertBefore这个方法是移动性的
+        // hostInsert(nextChild.el, el, anchor); // insert是移动节点 //如果值不为 0 的话，那就直接以锚点为基准去插入
+        if (i !== seq[j]) {
+          hostInsert(nextChild.el, el, anchor); // insert是移动节点
+        } else {
+          //如果 toBePatched的下标和 seq 处理过的存储的下标值一样只是 seq 存储的下标值顺序是打乱的，那就跳过
+          //换句话说如果 seq 的值完全和 toBePatched的下标一样，那就不用处理了，是最优解，如果不一样，那就一项项比有一样的就跳过
+          j--; // 不做移动跳过节点即可
+        }
         // 这个插入操作比较暴利， 整个做了一次移动，但是我们需要优化不动的那一项
         // [5, 3, 4, 0]  -》 [1,2] 最长递增子序列
         // 索引为 1 和 2的不用动
@@ -228,11 +249,11 @@ export function createRenderer(options) {
     const c2 = n2.children;
     const prevShapeFlag = n1.shapeFlag;
     const shapeFlag = n2.shapeFlag;
-    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
-      if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-        unmountChildren(c1);
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {//如果新节点是文本
+      if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {//老的节点是数组
+        unmountChildren(c1); //那就将老的节点卸载
       }
-      if (c1 !== c2) {
+      if (c1 !== c2) { //如果新的是文本，老节点也是文本，内容不同那就重新插入文本
         // 文本内容不相同
         hostSetElementText(el, c2);
       }
@@ -244,7 +265,7 @@ export function createRenderer(options) {
 
           // diff算法
           patchKeyedChildren(c1, c2, el);
-        } else {
+        } else { //新的不是数组
           // 老的是数组  新的不是数组.删除来的
           unmountChildren(c1);
         }
@@ -275,7 +296,7 @@ export function createRenderer(options) {
       // 初次渲染
       mountElement(n2, container, anchor);
     } else {
-      // diff算法
+      // diff算法 在比对的时候，我们都会复用出渲染创建的真实 el，给n2，所有 diff 的时候都是去这个复用的节点上去操作的
 
       patchElement(n1, n2);
     }
@@ -481,3 +502,53 @@ export function createRenderer(options) {
   };
 }
 
+
+// 最长递增子序列
+// 最优的情况 [1,2,3,4,5,6]  -> [0,1,2,3,4,5]
+
+function getSequence(arr) {
+  let len = arr.length; // 总长度
+  let result = [0]; // 默认连续的最终结果 组成的索引
+  let resultLastIndex;
+  let start;
+  let end;
+  let middle;
+  let p = arr.slice(0); // 用来标识索引的
+  for (let i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      // vue 中序列中不会出现0  如果序列中出现 0 的话忽略就可以
+      resultLastIndex = result[result.length - 1];
+      if (arr[resultLastIndex] < arrI) {
+        result.push(i);
+        p[i] = resultLastIndex; // 让当前最后一项记住前一项的索引
+        continue;
+      }
+      // [1,2,3,4,5,6]
+      // 这里就会出现 当前项比最后一项的值大  [0,1,2]
+      start = 0;
+      end = result.length - 1;
+      while (start < end) {
+        middle = ((start + end) / 2) | 0;
+        if (arr[result[middle]] < arrI) {
+          start = middle + 1;
+        } else {
+          end = middle;
+        }
+      }
+      // middle 就是第一个比当前值大的值
+      if (arrI < arr[result[start]]) {
+        p[i] = result[start - 1]; // 记住换的那个人的前一项的索引
+        result[start] = i;
+      }
+    }
+  }
+  // 追溯
+  let i = result.length; // 获取数组长度
+  let last = result[i - 1]; // 最后一项的索引
+  while (i-- > 0) {
+    result[i] = last; // 用最后一项的索引来追溯
+    last = p[last]; // 用p中的索引来进行追溯
+  }
+  return result;
+}

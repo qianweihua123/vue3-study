@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-05 15:12:20
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-05 16:11:27
+ * @LastEditTime: 2022-11-08 15:41:23
  * @FilePath: /vue3-study/packages/runtime-dom/dist/2.diff.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -28,22 +28,24 @@
 
             h('li', { key: 'a' }, 'a'),
             h('li', { key: 'b' }, 'b'),
-            // h('li', { key: 'c' }, 'c'),
-            // h('li', { key: 'd' }, 'd'),
-            // h('li', { key: 'e' }, 'e'),
-            // h('li', { key: 'f' }, 'f'),
-            // h('li', { key: 'g' }, 'g'),
+            h('li', { key: 'c' }, 'c'),
+            h('li', { key: 'd' }, 'd'),
+            h('li', { key: 'w' }, 'w'),
+            h('li', { key: 'e' }, 'e'),
+            h('li', { key: 'f' }, 'f'),
+            h('li', { key: 'g' }, 'g'),
 
         ]), app)
         setTimeout(() => {
             render(h('div', [
             h('li', { key: 'a' }, 'a'),
-            h('li', { key: 'b1' }, 'b2'),
-            // h('li', { key: 'c' }, 'c1'),
-            // h('li', { key: 'd1' }, 'd1'),
-            // h('li', { key: 'e1' }, 'e1'),
-            // h('li', { key: 'f1' }, 'f1'),
-            // h('li', { key: 'g' }, 'g'),
+            h('li', { key: 'b' }, 'b'),
+            h('li', { key: 'e' }, 'e'),
+            h('li', { key: 'c' }, 'c'),
+            h('li', { key: 'd' }, 'd'),
+            h('li', { key: 'h' }, 'h'),
+            h('li', { key: 'f' }, 'f'),
+            h('li', { key: 'g' }, 'g'),
             ]), app)
         }, 1000)
     </script>

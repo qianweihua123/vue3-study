@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-28 20:52:10
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-29 16:52:47
+ * @LastEditTime: 2022-11-08 11:35:55
  * @FilePath: /vue3-study/packages/reactivity/src/computed.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -65,7 +65,7 @@ export class ReactiveEffect {
           trackEffects(this.dep || (this.dep = new Set()))
         }
         if(this._dirty){//默认为 true
-          //取值的时候执行用户传入的函数
+          //取值的时候执行用户传入的函数，在run 函数内部会把当前的 this 赋值到 activeEffect 上，那么内部的变量会收集这个计算属性 effect
           this._value = this.effect.run()//执行此方法的时候将 this 赋值到 activeEffect
           this._dirty = false //关闭开关，开启缓存
         }
