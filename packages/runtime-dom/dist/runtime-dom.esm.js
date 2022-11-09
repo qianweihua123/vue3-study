@@ -211,6 +211,78 @@ function triggerEffects(dep) {
   }
 }
 
+// packages/reactivity/src/ref.ts
+function ref(value) {
+  return new RefImpl(value);
+}
+function toReactive(value) {
+  return isObject(value) ? reactive(value) : value;
+}
+var RefImpl = class {
+  constructor(rawValue) {
+    this.rawValue = rawValue;
+    this.dep = void 0;
+    this._v_isRef = true;
+    this._value = toReactive(rawValue);
+  }
+  get value() {
+    if (activeEffect) {
+      trackEffects(this.dep || (this.dep = /* @__PURE__ */ new Set()));
+    }
+    return this._value;
+  }
+  set value(newValue) {
+    if (newValue !== this.rawValue) {
+      this._value = toReactive(newValue);
+      this.rawValue = newValue;
+      triggerEffects(this.dep);
+    }
+  }
+};
+var ObjectRefImpl = class {
+  constructor(_object, _key) {
+    this._object = _object;
+    this._key = _key;
+    this._v_isRef = true;
+  }
+  get value() {
+    return this._object[this._key];
+  }
+  set value(newValue) {
+    this._object[this._key] = newValue;
+  }
+};
+function toRef(target, key) {
+  return new ObjectRefImpl(target, key);
+}
+function toRefs(object) {
+  const ret = {};
+  for (let key in object) {
+    ret[key] = toRef(object, key);
+  }
+  return ret;
+}
+function isRef(ref2) {
+  return !!ref2._v_isRef;
+}
+function unRef(ref2) {
+  return isRef(ref2) ? ref2.value : ref2;
+}
+function proxyRefs(objectWithRefs) {
+  return new Proxy(objectWithRefs, {
+    get(target, key) {
+      return unRef(Reflect.get(target, key));
+    },
+    set(target, key, value) {
+      if (isRef(target[key]) && !isRef(value)) {
+        return target[key].value = value;
+      } else {
+        return Reflect.set(target, key, value);
+      }
+    }
+  });
+}
+
 // packages/reactivity/src/baseHandlers.ts
 var mutableHandlers = {
   get(target, key, receiver) {
@@ -218,7 +290,14 @@ var mutableHandlers = {
       return true;
     }
     track(target, key);
-    return Reflect.get(target, key, receiver);
+    let r = Reflect.get(target, key, receiver);
+    if (isRef(r)) {
+      return r.value;
+    }
+    if (isObject(r)) {
+      return reactive(r);
+    }
+    return r;
   },
   set(target, key, value, receiver) {
     debugger;
@@ -232,6 +311,10 @@ var mutableHandlers = {
 };
 
 // packages/reactivity/src/reactive.ts
+var ReactiveFlags = /* @__PURE__ */ ((ReactiveFlags2) => {
+  ReactiveFlags2["IS_REACTIVE"] = "__v_isReactive";
+  return ReactiveFlags2;
+})(ReactiveFlags || {});
 function isReactive(target) {
   return !!(target && target["__v_isReactive" /* IS_REACTIVE */]);
 }
@@ -337,7 +420,6 @@ function createVNode(type, props = null, children = null) {
 
 // packages/runtime-core/src/h.ts
 function h(type, propsOrChildren, children) {
-  debugger;
   const l = arguments.length;
   if (l == 2) {
     if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) {
@@ -379,6 +461,49 @@ var queueJob = (job) => {
     });
   }
 };
+
+// packages/reactivity/src/computed.ts
+var ComputedRefImpl = class {
+  constructor(getter, setter) {
+    this.setter = setter;
+    this.dep = void 0;
+    this.effect = void 0;
+    this._v_isRef = true;
+    this._dirty = true;
+    this.effect = new ReactiveEffect(getter, () => {
+      this._dirty = true;
+      triggerEffects(this.dep || (this.dep = /* @__PURE__ */ new Set()));
+    });
+  }
+  get value() {
+    if (activeEffect) {
+      trackEffects(this.dep || (this.dep = /* @__PURE__ */ new Set()));
+    }
+    if (this._dirty) {
+      this._value = this.effect.run();
+      this._dirty = false;
+    }
+    return this._value;
+  }
+  set value(newValue) {
+    this.setter(newValue);
+  }
+};
+var noop = () => {
+};
+function computed(getterOrOptions) {
+  let onlyGetter = isFunction(getterOrOptions);
+  let getter;
+  let setter;
+  if (onlyGetter) {
+    getter = onlyGetter;
+    setter = noop;
+  } else {
+    getter = getterOrOptions.get;
+    setter = getterOrOptions.set || noop;
+  }
+  return new ComputedRefImpl(getter, setter);
+}
 
 // packages/runtime-core/src/componentProps.ts
 function initProps(instance, rawProps) {
@@ -423,11 +548,13 @@ var publicProperties = {
 };
 var PublicInstancePropxyHandlers = {
   get(target, key) {
-    let { data, props } = target;
+    let { data, props, setupState } = target;
     if (hasOwn(key, data)) {
       return data[key];
     } else if (hasOwn(key, props)) {
       return props[key];
+    } else if (setupState && hasOwn(key, setupState)) {
+      return setupState[key];
     }
     let getter = publicProperties[key];
     if (getter) {
@@ -435,12 +562,14 @@ var PublicInstancePropxyHandlers = {
     }
   },
   set(target, key, value) {
-    let { data, props } = target;
+    let { data, props, setupState } = target;
     if (hasOwn(key, data)) {
       data[key] = value;
     } else if (hasOwn(key, props)) {
       console.log("warn ");
       return false;
+    } else if (setupState && hasOwn(key, setupState)) {
+      setupState[key] = value;
     }
     return true;
   }
@@ -449,6 +578,23 @@ function setupComponent(instance) {
   const { type, props, children } = instance.vnode;
   initProps(instance, props);
   instance.proxy = new Proxy(instance, PublicInstancePropxyHandlers);
+  let { setup } = type;
+  if (setup) {
+    const setupContext = {
+      attrs: instance.attrs,
+      emit: (event, ...args) => {
+        const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+        const handler = instance.vnode.props[eventName];
+        handler && handler(...args);
+      }
+    };
+    const setupResult = setup(instance.props, setupContext);
+    if (isFunction(setupResult)) {
+      instance.render = setupResult;
+    } else {
+      instance.setupState = proxyRefs(setupResult);
+    }
+  }
   let data = type.data;
   if (data) {
     if (isFunction(data)) {
@@ -671,7 +817,8 @@ function createRenderer(options) {
     const { render: render3 } = instance;
     const componentFn = () => {
       if (!instance.isMounted) {
-        const subTree = render3.call(instance.proxy);
+        debugger;
+        const subTree = render3.call(instance.proxy, instance.proxy);
         patch(null, subTree, container, anchor);
         instance.subTree = subTree;
         instance.isMounted = true;
@@ -828,13 +975,23 @@ var render = (vnode, container) => {
 };
 export {
   Fragment,
+  ReactiveFlags,
   Text,
+  computed,
   createRenderer,
   createVNode,
   h,
+  isReactive,
+  isRef,
   isSameVNode,
   isVNode,
+  proxyRefs,
+  reactive,
+  ref,
   render,
+  toRef,
+  toRefs,
+  unRef,
   watch,
   watchEffect
 };

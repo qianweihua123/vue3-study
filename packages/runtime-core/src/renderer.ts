@@ -360,9 +360,10 @@ export function createRenderer(options) {
     //也就是 effect.run()执行的
     const componentFn = () => {
       if (!instance.isMounted) {
+        debugger
         // 这里会做依赖收集，数据变化会再次调用effect
         //得到组件的节点树
-        const subTree = render.call(instance.proxy);
+        const subTree = render.call(instance.proxy, instance.proxy);
         //然后通过 patch 将组件内部的节点树变成真实的节点
         patch(null, subTree, container, anchor);
         //将第一次渲染的节点树保存起来
@@ -502,7 +503,7 @@ export function createRenderer(options) {
     if (shouldComponentUpdate(n1, n2)) {//如果需要更新，我们就重新调用 run 方法
       // 比对属性 和 插槽 看一下要不要更新
       instance.next = n2; // 我们将新的虚拟节点挂载到实例上
-      instance.update();//这的 update 就是 effect.run方法
+      instance.update();//这的 update 就是 effect.run方法 1
     }
   }
   const processComponent = (n1, n2, container, anchor = null) => {
