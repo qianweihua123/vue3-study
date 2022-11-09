@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-26 15:05:11
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-10-28 10:08:20
+ * @LastEditTime: 2022-11-09 15:32:06
  * @FilePath: /vue3-study/packages/reactivity/src/baseHandlers.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -44,6 +44,7 @@ export const mutableHandlers = {
         return Reflect.get(target, key, receiver)
     },
     set(target, key, value, receiver) {
+        debugger
         //取出旧的值
         let oldValue = target[key]
         let result = Reflect.set(target, key, value, receiver)

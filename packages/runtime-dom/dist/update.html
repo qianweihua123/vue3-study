@@ -1,0 +1,145 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-09 14:29:05
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-09 15:45:32
+ * @FilePath: /vue3-study/packages/runtime-dom/dist/update.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+        //import { createRenderer, h, render, Text, Fragment, getCurrentInstance } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { h, render, Text, Fragment } from './runtime-dom.esm.js'
+
+
+
+        const ChildComponent = {
+            props: {
+                a: String,
+            }, // ->
+            render() {
+                return h(Text, this.a);
+            }
+        }
+        const VueComponent = {
+            data() {
+                return { isShow: false }
+            },
+            render() {
+                return h(Fragment,
+                    [
+                        h('button', {
+                            onClick: () => {
+                                this.isShow = !this.isShow
+                            }
+                        }, '点我修改状态'),
+                        h(ChildComponent, { a: this.isShow ? '显示' : '隐藏' })
+                    ])
+            }
+        }
+        render(h(VueComponent), app)//这个 render 去调用 patch 了，h 产生虚拟节点
+        //先进入h函数讲组件渲染成一个虚拟节点，因为值传入了一个参数，所以组件传入其实是个对象
+        //1.组件的虚拟Dom 是一个对象，type 里面存储了组件对象（data 和 render)
+        //2.接下来调用我们的 render 函数export const render = (vnode, container) => {
+//     return createRenderer(renderOptions).render(vnode, container);
+//   };
+    //3 传入renderOptions dom 操作的相关方法，返回真正的 render 方法去调用了，传入 vnode,和 container 容器
+    //4 第一次是首次渲染，会进入 patch 逻辑 patch(container._vnode || null, vnode, container);
+    //5 patch 内部去处理组件节点了 //处理组件节点processComponent(n1, n2, container, anchor);
+    // 6 初始化组件   mountComponent(n2, container, anchor)
+    //7创建组件实例 const instance = (vnode.component = createComponentInstance(vnode)); // 让虚拟节点知道对应的组件是谁
+    //8给组件实例赋予属性 setupComponent
+    //8 -1 内部去执行 initProps （将 props 和 attrs 分开放，放到组件实例上）
+    // 8 -2 并且在组件实例上定义一个属性 proxy，去代理 data，prop这些里面的值，方便取值
+    //8 -3 将用户定义的 render 方法放到 instance.render 上
+    // 9 创建组件的 effect     setupRenderEffect(instance, container, anchor);
+    //9 -1 它里面拿到了用户的 render 方法，定义了 componentFn 函数
+    // 9 -2componentFn上面这个函数里面判断了是否挂载，初始挂载调用用户 render，得到节点树，然后调用 patch,patch会从上到下递归，保存这次的节点树，但是现在只是定义传入 effect 中了
+    //9-3 componentFn这个函数放到了 effect 类的第一项，相当于 run 调用的那个，第二个参数传了异步更新控制
+    //9 -4 将 effect 的 run 放到保存到 uodate 变量，然后最后调用这个 update,z这个时候就调用了componentFn了，内部去获取节点树 patch
+    // 9 - 5   调用的这个    render() {
+        // return h(Fragment,
+        //             [
+        //                 h('button', {
+        //                     onClick: () => {
+        //                         this.isShow = !this.isShow
+        //                     }
+        //                 }, '点我修改状态'),
+        //                 h(ChildComponent, { a: this.isShow ? '显示' : '隐藏' })
+        //             ])
+        //     }
+        // 9 -6 在调用这个时候因为 patch 了，还是会遇到子组件，这也是个组件又会进入上面的流程去 patch
+        //10当我们更新的时候 例如文件中例子点击的时候会进入 set，show 这个属性之前渲染的时候收集了组件 effect
+        //11我们会进入 trigger方法，取出里面的组件 effect,调用 run 方法强制刷新
+        //12我们组件 effect,是设置了异步更新作为 scheduler 的，调用 update
+        //13一旦更新，会重新生成新的节点树，然后再 patch,
+        //14在 patch 里面会再次走到 processComponent
+        //15这个时候n1 有值了，就是执行 updateComponent
+        /**
+        * @description 描述
+  const processComponent = (n1, n2, container, anchor = null) => {
+    if (n1 === null) {
+      //我们在初始化组件的时候，分为出渲染
+      mountComponent(n2, container, anchor)
+    } else {
+      // 更新
+      // 组件更新  指代的是组件的属性 更新、插槽更新,render的更新已经在 proxy 中自动触发了
+      // let instance = (n2.component = n1.component);
+      // instance.props.a = n2.props.a;
+      //组件更新的时候去更新属性
+      debugger
+      updateComponent(n1, n2)
+    }
+
+  }
+        */
+       // 16 updateComponent方法先复用了实例
+       //17，然后内部执行shouldComponentUpdate去判断属性或者插槽是否改变，改变的话，在实例上 next 属性记住n2虚拟节点，然后强制调用 update
+      //18一旦调用后又会执行 effect 的 run，里面判断是否挂载过，现在是已经挂载过的状态
+      /**
+      * @description 描述
+    const componentFn = () => {
+      if (!instance.isMounted) {
+        // 这里会做依赖收集，数据变化会再次调用effect
+        //得到组件的节点树
+        const subTree = render.call(instance.proxy);
+        //然后通过 patch 将组件内部的节点树变成真实的节点
+        patch(null, subTree, container, anchor);
+        //将第一次渲染的节点树保存起来
+        instance.subTree = subTree; // 第一次渲染产生的vnode
+        //标识下已经挂载过
+        instance.isMounted = true;
+      } else {
+        //已经挂载过更新的情况
+        //拿到新的节点树虚拟 dom
+        //我们可以在这通过 next 是否有值，去判断是否需要更新
+        let { next } = instance;
+        if (next) {
+          // 如果有next 说明 属性或者插槽 更新了
+          updateComponentPreRender(instance, next);
+        }
+        // 组件的更新会执行组件的 render 函数拿到新的虚拟 dom 数据结构
+        const subTree = render.call(instance.proxy, instance.proxy); // 这里也更新了？
+        //进行 patch 更新
+        patch(instance.subTree, subTree, container, anchor);
+        //保存这一次的虚拟节点树
+        instance.subTree = subTree;
+      }
+    }
+      */
+    //  19 这里更新的时候就会判断 next 是否有值了，有的话更新属性，然后再去patch
+    </script>
+</body>
+
+</html>

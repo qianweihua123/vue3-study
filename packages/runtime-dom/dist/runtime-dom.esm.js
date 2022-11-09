@@ -221,6 +221,7 @@ var mutableHandlers = {
     return Reflect.get(target, key, receiver);
   },
   set(target, key, value, receiver) {
+    debugger;
     let oldValue = target[key];
     let result = Reflect.set(target, key, value, receiver);
     if (oldValue != value) {
@@ -336,6 +337,7 @@ function createVNode(type, props = null, children = null) {
 
 // packages/runtime-core/src/h.ts
 function h(type, propsOrChildren, children) {
+  debugger;
   const l = arguments.length;
   if (l == 2) {
     if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) {
@@ -400,7 +402,7 @@ function initProps(instance, rawProps) {
 // packages/runtime-core/src/component.ts
 function createComponentInstance(vnode) {
   const instance = {
-    data: null,
+    data: {},
     isMounted: false,
     subTree: null,
     vnode,
@@ -581,7 +583,6 @@ function createRenderer(options) {
       if (newIndexToOldMapIndex[i2] == 0) {
         patch(null, nextChild, el, anchor);
       } else {
-        debugger;
         if (i2 !== seq[j]) {
           hostInsert(nextChild.el, el, anchor);
         } else {
@@ -651,6 +652,21 @@ function createRenderer(options) {
       patchKeyedChildren(n1.children, n2.children, el);
     }
   };
+  const updateProps = (prevProps, nextProps) => {
+    for (let key in nextProps) {
+      prevProps[key] = nextProps[key];
+    }
+    for (let key in prevProps) {
+      if (!(key in nextProps)) {
+        delete prevProps[key];
+      }
+    }
+  };
+  const updateComponentPreRender = (instance, next) => {
+    instance.next = null;
+    instance.vnode = next;
+    updateProps(instance.props, next.props);
+  };
   const setupRenderEffect = (instance, container, anchor) => {
     const { render: render3 } = instance;
     const componentFn = () => {
@@ -660,7 +676,10 @@ function createRenderer(options) {
         instance.subTree = subTree;
         instance.isMounted = true;
       } else {
-        console.log(render3, instance.proxy, 11);
+        let { next } = instance;
+        if (next) {
+          updateComponentPreRender(instance, next);
+        }
         const subTree = render3.call(instance.proxy, instance.proxy);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
@@ -677,12 +696,42 @@ function createRenderer(options) {
     setupComponent(instance);
     setupRenderEffect(instance, container, anchor);
   };
+  const hasPropsChanged = (prevProps = {}, nextProps = {}) => {
+    let l1 = Object.keys(prevProps);
+    let l2 = Object.keys(nextProps);
+    if (l1.length !== l2.length) {
+      return true;
+    }
+    for (let i = 0; i < l1.length; i++) {
+      const key = l2[i];
+      if (nextProps[key] !== prevProps[key]) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const shouldComponentUpdate = (n1, n2) => {
+    const { props: prevProps, children: prevChildren } = n1;
+    const { props: nextProps, children: nextChildren } = n2;
+    if (prevChildren || nextChildren)
+      return true;
+    if (prevProps === nextProps)
+      return false;
+    return hasPropsChanged(prevProps, nextProps);
+  };
+  const updateComponent = (n1, n2) => {
+    let instance = n2.component = n1.component;
+    if (shouldComponentUpdate(n1, n2)) {
+      instance.next = n2;
+      instance.update();
+    }
+  };
   const processComponent = (n1, n2, container, anchor = null) => {
     if (n1 === null) {
       mountComponent(n2, container, anchor);
     } else {
-      let instance = n2.component = n1.component;
-      instance.props.a = n2.props.a;
+      debugger;
+      updateComponent(n1, n2);
     }
   };
   const patch = (n1, n2, container, anchor = null) => {
@@ -716,6 +765,7 @@ function createRenderer(options) {
     hostRemove(vnode.el);
   };
   const render2 = (vnode, container) => {
+    debugger;
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode);

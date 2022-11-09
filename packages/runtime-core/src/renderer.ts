@@ -218,12 +218,11 @@ export function createRenderer(options) {
         //   insert(child, parent, anchor) {
         //insertBefore这个方法是移动性的     A B C D  -> A C B  D
         // parent.insertBefore(child, anchor || null); 会去父元素中找到这个锚点插入
-      // },
+        // },
         patch(null, nextChild, el, anchor); // 将h插入到 f前面
         // 找到新增的了
         // 创建元素在插入
       } else {
-        debugger
         // 直接做插入操作即可
         //  倒序插入
         //这个方法会移动节点比如移动前位置 abcdehfg ，实际我们 d 需要移动到h前面，
@@ -333,9 +332,31 @@ export function createRenderer(options) {
     }
   }
 
-  const setupRenderEffect = (instance,container,anchor) => {
+  //在更新组件的时候，如果需要更新 props
+  const updateProps = (prevProps, nextProps) => {
+    for (let key in nextProps) {
+      //循环新属性，将新属性的每个 key 都设置到旧属性中，相同的会覆盖
+      prevProps[key] = nextProps[key]
+    }
+    //循环老的属性，如果不在新的里面就删除
+    for (let key in prevProps) {
+      if (!(key in nextProps)) {
+        delete prevProps[key]
+      }
+    }
+  }
+
+  //这个方法是处理更新的
+  const updateComponentPreRender = (instance, next) => {
+    //确认需要更新的情况下，将保存的 next 清空，为下次留位置
+    instance.next = null
+    instance.vnode = next  // 用新的虚拟节点 换掉老的虚拟节点
+    //更新下属性
+    updateProps(instance.props, next.props)
+  }
+  const setupRenderEffect = (instance, container, anchor) => {
     const { render } = instance;
-     //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
+    //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
     //也就是 effect.run()执行的
     const componentFn = () => {
       if (!instance.isMounted) {
@@ -351,8 +372,13 @@ export function createRenderer(options) {
       } else {
         //已经挂载过更新的情况
         //拿到新的节点树虚拟 dom
-        console.log(render,instance.proxy,11);
-
+        //我们可以在这通过 next 是否有值，去判断是否需要更新
+        let { next } = instance;
+        if (next) {
+          // 如果有next 说明 属性或者插槽 更新了
+          updateComponentPreRender(instance, next);
+        }
+        // 组件的更新会执行组件的 render 函数拿到新的虚拟 dom 数据结构
         const subTree = render.call(instance.proxy, instance.proxy); // 这里也更新了？
         //进行 patch 更新
         patch(instance.subTree, subTree, container, anchor);
@@ -442,6 +468,43 @@ export function createRenderer(options) {
 
   }
 
+  //这里只是对比了属性有变化，实际我们还需要把变化的部分操作掉，也就是写一个 updateProps 方法
+  const hasPropsChanged = (prevProps = {}, nextProps = {}) => {
+    //取出两个 props 的属性，拼成属性
+    let l1 = Object.keys(prevProps)
+    let l2 = Object.keys(nextProps)
+    if (l1.length !== l2.length) {
+      return true
+    }
+    //循环老的 props的 key，同时去新的 props 里面取
+    for (let i = 0; i < l1.length; i++) {
+      const key = l2[i];
+      if (nextProps[key] !== prevProps[key]) {
+        return true; // 属性有变化
+      }
+    }
+    return false
+  }
+  //判断组件是否需要更新
+  const shouldComponentUpdate = (n1, n2) => {
+    const { props: prevProps, children: prevChildren } = n1;
+    const { props: nextProps, children: nextChildren } = n2;
+    // 对于插槽而言 只要前后有插槽 那么就意味着组件要更新
+    if (prevChildren || nextChildren) return true;
+    //如果 props 一样不更新
+    if (prevProps === nextProps) return false;
+    return hasPropsChanged(prevProps, nextProps);
+  }
+  //更新组件
+  const updateComponent = (n1, n2) => {
+    //更新属性的时候先复用组件
+    let instance = (n2.component = n1.component)
+    if (shouldComponentUpdate(n1, n2)) {//如果需要更新，我们就重新调用 run 方法
+      // 比对属性 和 插槽 看一下要不要更新
+      instance.next = n2; // 我们将新的虚拟节点挂载到实例上
+      instance.update();//这的 update 就是 effect.run方法
+    }
+  }
   const processComponent = (n1, n2, container, anchor = null) => {
     if (n1 === null) {
       //我们在初始化组件的时候，分为出渲染
@@ -449,8 +512,11 @@ export function createRenderer(options) {
     } else {
       // 更新
       // 组件更新  指代的是组件的属性 更新、插槽更新,render的更新已经在 proxy 中自动触发了
-      let instance = (n2.component = n1.component);
-      instance.props.a = n2.props.a;
+      // let instance = (n2.component = n1.component);
+      // instance.props.a = n2.props.a;
+      //组件更新的时候去更新属性
+      debugger
+      updateComponent(n1, n2)
     }
 
   }
@@ -494,6 +560,7 @@ export function createRenderer(options) {
     hostRemove(vnode.el)
   };
   const render = (vnode, container) => {
+    debugger
     if (vnode == null) {
       // 卸载：删除节点
 
@@ -565,3 +632,5 @@ function getSequence(arr) {
   }
   return result;
 }
+
+

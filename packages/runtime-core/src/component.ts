@@ -5,7 +5,7 @@ import { initProps } from "./componentProps";
 //创建组件实例
 export function createComponentInstance(vnode) {
     const instance = {
-        data: null,
+        data: null || {}, //需要先给个默认对象，不然 null 的话报错
         isMounted: false,
         subTree: null,
         vnode,
