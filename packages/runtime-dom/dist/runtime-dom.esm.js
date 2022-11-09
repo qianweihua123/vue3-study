@@ -263,7 +263,7 @@ function toRefs(object) {
   return ret;
 }
 function isRef(ref2) {
-  return !!ref2._v_isRef;
+  return !!(ref2 && ref2._v_isRef);
 }
 function unRef(ref2) {
   return isRef(ref2) ? ref2.value : ref2;
@@ -586,6 +586,9 @@ function setupComponent(instance) {
         const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
         const handler = instance.vnode.props[eventName];
         handler && handler(...args);
+      },
+      expose(exopsed) {
+        instance.exopsed = exopsed;
       }
     };
     const setupResult = setup(instance.props, setupContext);

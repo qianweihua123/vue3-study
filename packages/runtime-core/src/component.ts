@@ -84,7 +84,10 @@ export function setupComponent(instance) {
                 //编译后的事件会存在虚拟节点的 props上，我们取出来，然后再 emit 种调用，所有，一旦使用 emit 就会调用用户事件
                 const handler = instance.vnode.props[eventName];
                 handler && handler(...args);
-            }
+            },
+            expose(exopsed) {//传入一个对象，然后放到组件实例上了
+                instance.exopsed = exopsed; // ref获取组件时拿到的就是exposed属性
+              },
         }
         //调用setup函数，第一个参数是props，第二个是 我们上面创建的执行上下文
         const setupResult = setup(instance.props, setupContext);

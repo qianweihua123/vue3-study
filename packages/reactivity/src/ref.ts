@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-10-30 11:52:31
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-09 16:11:51
+ * @LastEditTime: 2022-11-09 16:59:34
  * @FilePath: /vue3-study/packages/reactivity/src/ref.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -72,7 +72,7 @@ export function toRefs(object) {
 
 //将 torefs 后的对象 转换一下ref类型，省去了 .value 繁琐操作。
 export function isRef(ref) {
-    return !!ref._v_isRef
+    return !!(ref && ref._v_isRef)
 }
 
 export function unRef(ref) {
