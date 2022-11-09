@@ -4,6 +4,7 @@ import { ReactiveEffect } from "packages/reactivity/src/effect";
 import { initProps } from "./componentProps";
 import { isSameVNode, Text, Fragment } from "./vnode";
 import { queueJob } from "./scheduler"
+import { createComponentInstance, setupComponent } from "./component";
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -175,8 +176,8 @@ export function createRenderer(options) {
     // d h f
     // c d h f
     // e c d h f
-    const toBePatched = e2 - s2 + 1; //这个是循环下来无法正常比对新 vnode 里面节点的长度
-    const newIndexToOldMapIndex = new Array(toBePatched).fill(0); // [0,0,0,0]
+    const toBePatched = e2 - s2 + 1; //这个是循环下来无法正常比对新 vnode 里面节点的长度(拿到常规逻辑无法比对的长度)
+    const newIndexToOldMapIndex = new Array(toBePatched).fill(0); // [0,0,0,0] （根据上面常规逻辑无法比对的长度创建一个都是 0 的数组）
     for (let i = s1; i <= e1; i++) { //循环无序的老的节点
       const child = c1[i];
       let newIndex = keyToNewIndexMap.get(child.key); // 通过老的key 来查找对应的新的索引
@@ -186,8 +187,8 @@ export function createRenderer(options) {
         unmount(child);
       } else {
         // 比对两个属性
-        // 如果前后两个能复用，则比较这两个节点
-        newIndexToOldMapIndex[newIndex - s2] = i + 1; //在新节点辅助数组中，记录下老的下标+1，之所以加 1 是因为 0 的话没有意义，0 代表新增的节点
+        // 如果前后两个能复用，则比较这两个节点 这个 newIndex 就是新节点在老节点查找到了的情况下，我们拿到存储的新节点映射表里面新节点的下标，减去 s 2 就是它在新newIndexToOldMapIndex数组从 0 开始往后对应的位置，在这个位置存储上能复用的老节点的下标 +1
+        newIndexToOldMapIndex[newIndex - s2] = i + 1; //newIndex 是存储的下标值，下标减去 s2 就是减去常规比对的结束的位置，在新节点对应的位置存储老节点+1//在新节点辅助数组中，记录下老的下标+1，之所以加 1 是因为 0 的话没有意义，0 代表新增的节点
         patch(child, c2[newIndex], el); // 这个地方复用了，插入到了真实节点中
       }
     }
@@ -207,8 +208,8 @@ export function createRenderer(options) {
       //这里的s2 是 i跳出循环的第一项let s2 = i; // s2 -> e2
       //s2 加上    const toBePatched = e2 - s2 + 1  toBePatched是乱序比对元素的长度 i是长度减去 1，这时候拿到乱序比对的最后一项
       //也就是下面的nextIndex
-      const nextIndex = s2 + i; // 循环的当前项 下一个元素的索引 //这个值根据循环会一直变化，所有可以更换锚点
-      const nextChild = c2[nextIndex]; // 先拿到的h  根据我们上面说的需要乱序比对的最后一项的索引取到值
+      const nextIndex = s2 + i; // 循环的需要全量比对的当前项 的索引（也就是最后一项，倒序插入的）//这个值根据循环会一直变化，所有可以更换锚点
+      const nextChild = c2[nextIndex]; //根据索引去新节点中找到这个元素 先拿到的h  根据我们上面说的需要乱序比对的最后一项的索引取到值
       // 看一下 h 后面是否有值 ，有值就将h 插入到这个元素的前面，没有值就是appendChild
       const anchor = nextIndex + 1 < c2.length ? c2[nextIndex + 1].el : null; //看下乱序比对最后一项后面是否有值，有值的话那就拿到作为锚点，没有的话说明乱序比对最后一项元素就是最后一个了，锚点就是 null，传入的话就是追加
       // 默认找到f 把 h 插入到f前面
@@ -332,67 +333,9 @@ export function createRenderer(options) {
     }
   }
 
-  const mountComponent = (vnode, container, anchor) => {
-    // 如何挂载组件？  vnode 指代的是组件的虚拟节点  subTree render函数返回的虚拟节点
-    //组件虚拟节点的 type 上有 render,props等配置信息
-    const { data = () => ({}), render, props: propsOptions = {} } = vnode.type;
-    const state = reactive(data()); // 将数据变成响应式的
-    //定义一个对象代表组件实例的对象
-    const instance = {
-      // 组件的实例
-      data: state,
-      isMounted: false,
-      subTree: null,
-      vnode,
-      update: null, // 组件的更新方法 effect.run()
-      props: {},
-      attrs: {},
-      propsOptions,
-      proxy: null,
-    };
-    //组件的虚拟节点上增加 component 属性，记住当前的组件实例
-    vnode.component = instance; // 让虚拟节点知道对应的组件是谁
-    //初始化 props
-    // instance.propsOptions 用户接受了哪些属性的列表 ，  vnode.props
-    initProps(instance, vnode.props);
-    //在组件实例对象上新增一个 proxy 对象，当我们访问实例对象上的，
-    const publicProperties = {
-      $attrs: (i) => i.attrs,
-      $props: (i) => i.props,
-    };
-    //data 或者 props 里面的值的时候，建议一个映射返回关系
-    instance.proxy = new Proxy(instance, {
-      get(target, key) {
-        //从实例对象上拿到 data,props
-        let { data, props } = target
-        if (hasOwn(key, data)) {
-          //当我们访问 instance 上 proxy 的属性的时候，我们先去
-          //data上查找有没有这个 key 的，有的话，我们返回 data 上的
-          return data[key];
-        } else if (hasOwn(key, props)) {
-          //如果 data 上没有，再去 props 上查找，有的话，返回 props 上的值
-          return props[key];
-        }
-        //将$attrs,$props维护到一个对象，如果取值就从对象中执行函数
-        let getter = publicProperties[key];
-        if (getter) {
-          return getter(target);
-        }
-      },
-      set(target, key, value) {
-        //当我们设置值的时候，也是先去优先设置 data上的，props 上的不允许改，弹出提醒
-        let { data, props } = target;
-        if (hasOwn(key, data)) {
-          data[key] = value;
-        } else if (hasOwn(key, props)) {
-          console.log("warn ");
-          return false;
-        }
-        return true;
-      },
-    })
-
-    //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
+  const setupRenderEffect = (instance,container,anchor) => {
+    const { render } = instance;
+     //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
     //也就是 effect.run()执行的
     const componentFn = () => {
       if (!instance.isMounted) {
@@ -408,7 +351,9 @@ export function createRenderer(options) {
       } else {
         //已经挂载过更新的情况
         //拿到新的节点树虚拟 dom
-        const subTree = render.call(instance.proxy);
+        console.log(render,instance.proxy,11);
+
+        const subTree = render.call(instance.proxy, instance.proxy); // 这里也更新了？
         //进行 patch 更新
         patch(instance.subTree, subTree, container, anchor);
         //保存这一次的虚拟节点树
@@ -427,6 +372,74 @@ export function createRenderer(options) {
     //将 effect的 run 方法绑定到 effect 上返回一个新的返回，去调用执行
     const update = (instance.update = effect.run.bind(effect));
     update(); // 强制更新
+  }
+  const mountComponent = (vnode, container, anchor) => {
+    //第一步 创建组件实例1
+    const instance = (vnode.component = createComponentInstance(vnode)); // 让虚拟节点知道对应的组件是谁
+    //第二步给实例赋予属性
+    setupComponent(instance)
+    //第三步创建组件的 effect
+    setupRenderEffect(instance, container, anchor);
+    // 如何挂载组件？  vnode 指代的是组件的虚拟节点  subTree render函数返回的虚拟节点
+    //组件虚拟节点的 type 上有 render,props等配置信息
+    // const { data = () => ({}), render, props: propsOptions = {} } = vnode.type;
+    // const state = reactive(data()); // 将数据变成响应式的
+    //定义一个对象代表组件实例的对象
+    // const instance = {
+    //   // 组件的实例
+    //   data: state,
+    //   isMounted: false,
+    //   subTree: null,
+    //   vnode,
+    //   update: null, // 组件的更新方法 effect.run()
+    //   props: {},
+    //   attrs: {},
+    //   propsOptions,
+    //   proxy: null,
+    // };
+    //组件的虚拟节点上增加 component 属性，记住当前的组件实例
+    // vnode.component = instance; // 让虚拟节点知道对应的组件是谁
+    //初始化 props
+    // instance.propsOptions 用户接受了哪些属性的列表 ，  vnode.props
+    // initProps(instance, vnode.props);
+    //在组件实例对象上新增一个 proxy 对象，当我们访问实例对象上的，
+    // const publicProperties = {
+    //   $attrs: (i) => i.attrs,
+    //   $props: (i) => i.props,
+    // };
+    //data 或者 props 里面的值的时候，建议一个映射返回关系
+    // instance.proxy = new Proxy(instance, {
+    //   get(target, key) {
+    //     //从实例对象上拿到 data,props
+    //     let { data, props } = target
+    //     if (hasOwn(key, data)) {
+    //       //当我们访问 instance 上 proxy 的属性的时候，我们先去
+    //       //data上查找有没有这个 key 的，有的话，我们返回 data 上的
+    //       return data[key];
+    //     } else if (hasOwn(key, props)) {
+    //       //如果 data 上没有，再去 props 上查找，有的话，返回 props 上的值
+    //       return props[key];
+    //     }
+    //     //将$attrs,$props维护到一个对象，如果取值就从对象中执行函数
+    //     let getter = publicProperties[key];
+    //     if (getter) {
+    //       return getter(target);
+    //     }
+    //   },
+    //   set(target, key, value) {
+    //     //当我们设置值的时候，也是先去优先设置 data上的，props 上的不允许改，弹出提醒
+    //     let { data, props } = target;
+    //     if (hasOwn(key, data)) {
+    //       data[key] = value;
+    //     } else if (hasOwn(key, props)) {
+    //       console.log("warn ");
+    //       return false;
+    //     }
+    //     return true;
+    //   },
+    // })
+
+
   }
 
   const processComponent = (n1, n2, container, anchor = null) => {
