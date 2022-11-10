@@ -410,6 +410,8 @@ function createVNode(type, props = null, children = null) {
     let type2 = 0;
     if (Array.isArray(children)) {
       type2 = (_a = ShapeFlags) == null ? void 0 : _a.ARRAY_CHILDREN;
+    } else if (isObject(children)) {
+      type2 = 32 /* SLOTS_CHILDREN */;
     } else {
       type2 = 8 /* TEXT_CHILDREN */;
     }
@@ -544,7 +546,8 @@ function createComponentInstance(vnode) {
 }
 var publicProperties = {
   $attrs: (i) => i.attrs,
-  $props: (i) => i.props
+  $props: (i) => i.props,
+  $slots: (i) => i.slots
 };
 var PublicInstancePropxyHandlers = {
   get(target, key) {
@@ -574,9 +577,15 @@ var PublicInstancePropxyHandlers = {
     return true;
   }
 };
+function initSlots(instance, children) {
+  if (instance.vnode.shapeFlag & 32 /* SLOTS_CHILDREN */) {
+    instance.slots = children;
+  }
+}
 function setupComponent(instance) {
   const { type, props, children } = instance.vnode;
   initProps(instance, props);
+  initSlots(instance, children);
   instance.proxy = new Proxy(instance, PublicInstancePropxyHandlers);
   let { setup } = type;
   if (setup) {

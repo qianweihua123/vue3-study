@@ -1,0 +1,46 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-10 10:21:25
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-10 10:22:02
+ * @FilePath: /vue3-study/packages/runtime-dom/dist/slots.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+        //  import { createRenderer, h, render, Text, Fragment, getCurrentInstance, ref, reactive } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { h, render, Text, Fragment, ref, reactive, toRefs } from './runtime-dom.esm.js'
+        const VueComponent = {
+            props: {
+                a: String
+            },
+            // setup(props, ctx) {
+            //     return
+            // },
+            render() {
+                return h(Fragment, [
+                    this.$slots.header({ a: 100 }),
+                    this.$slots.footer()
+                ])
+            }
+        }
+        render(h(VueComponent, {
+            a: 1, b: 1, onMyEvent: () => {
+                alert('哈哈')
+            }
+        }, { header: ({ a }) => h('div', 'header' + a), footer: () => h('div', 'footer') }), app)
+    </script>
+</body>
+
+</html>

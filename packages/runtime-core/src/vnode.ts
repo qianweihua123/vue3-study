@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-02 14:21:53
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-08 15:40:46
+ * @LastEditTime: 2022-11-10 10:44:16
  * @FilePath: /vue3-study/packages/runtime-core/src/vnode.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -46,6 +46,8 @@ export function createVNode(type, props = null, children = null) {
         if (Array.isArray(children)) {
             // [vnode，'文本']
             type = ShapeFlags?.ARRAY_CHILDREN
+        }else if(isObject(children)){
+            type = ShapeFlags.SLOTS_CHILDREN; // 孩子是插槽
         } else {
             // 文本
             type = ShapeFlags.TEXT_CHILDREN;

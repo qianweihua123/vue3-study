@@ -1,5 +1,5 @@
 import { reactive } from "@vue/reactivity";
-import { hasOwn, isFunction } from "@vue/shared";
+import { hasOwn, isFunction, ShapeFlags } from "@vue/shared";
 import { proxyRefs } from "packages/reactivity/src/ref";
 import { initProps } from "./componentProps";
 
@@ -27,11 +27,12 @@ export function createComponentInstance(vnode) {
 const publicProperties = {
     $attrs: (i) => i.attrs,
     $props: (i) => i.props,
+    $slots: (i) => i.slots,
 };
 const PublicInstancePropxyHandlers = {
     get(target, key) {
         //从实例对象上拿到 data,props
-        let { data, props,setupState } = target
+        let { data, props, setupState } = target
         if (hasOwn(key, data)) {
             //当我们访问 instance 上 proxy 的属性的时候，我们先去
             //data上查找有没有这个 key 的，有的话，我们返回 data 上的
@@ -39,9 +40,9 @@ const PublicInstancePropxyHandlers = {
         } else if (hasOwn(key, props)) {
             //如果 data 上没有，再去 props 上查找，有的话，返回 props 上的值
             return props[key];
-        }else if (setupState && hasOwn(key, setupState)) {
+        } else if (setupState && hasOwn(key, setupState)) {
             return setupState[key];
-          }
+        }
         //将$attrs,$props维护到一个对象，如果取值就从对象中执行函数
         let getter = publicProperties[key];
         if (getter) {
@@ -63,12 +64,17 @@ const PublicInstancePropxyHandlers = {
         return true;
     },
 }
-
+function initSlots(instance: any, children) {
+    if (instance.vnode.shapeFlag & ShapeFlags.SLOTS_CHILDREN) {
+        instance.slots = children; // 将用户传递的插槽绑定到实例上
+    }
+}
 export function setupComponent(instance) {
     // 组件的对象 render(component,{a:1})
     const { type, props, children } = instance.vnode;
     // 用用户传递的props 和 把他解析成 attrs 和 props放到实例上
     initProps(instance, props);
+    initSlots(instance, children)
     instance.proxy = new Proxy(instance, PublicInstancePropxyHandlers)
 
     //接下来处理 setUp函数
@@ -87,7 +93,7 @@ export function setupComponent(instance) {
             },
             expose(exopsed) {//传入一个对象，然后放到组件实例上了
                 instance.exopsed = exopsed; // ref获取组件时拿到的就是exposed属性
-              },
+            },
         }
         //调用setup函数，第一个参数是props，第二个是 我们上面创建的执行上下文
         const setupResult = setup(instance.props, setupContext);
