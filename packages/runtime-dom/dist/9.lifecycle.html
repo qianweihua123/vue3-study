@@ -1,0 +1,60 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-11 11:54:03
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-11 11:55:10
+ * @FilePath: /vue3-study/packages/runtime-dom/dist/9.lifecycle.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+        import { createRenderer, h, render, Text, Fragment, ref, reactive, getCurrentInstance, onMounted } from './runtime-dom.esm.js';
+        // import { h, render, Text, Fragment, ref, reactive, toRefs } from './runtime-dom.esm.js'
+
+        // 生命周期 创建前后 * 2  挂载前后 * 2 更新前后*2 卸载前后 * 2
+
+        // options Api 想抽离公共逻辑 mixin的方式
+
+        // setup onBeforeMount onMounted onBeforeUpdate onUpdated onBeforeunmount onUnmounted
+        const VueComponent = {
+            // beforeCreate() {
+            //     console.log('before')
+            // },
+            // created() {
+            //     console.log('created')
+            // },
+            setup() { // 创建前后 就不需要了 没有 onBeforeCreate钩子
+                const instance = getCurrentInstance()
+                console.log('setup', instance)
+                onMounted(() => { // 这些方法 要将instance和mounted 关联起来
+                    console.log('mounted')
+                })
+                onMounted(() => {
+                    console.log('mounted')
+                })
+                console.log('setup', instance)
+                return () => {
+                    return h('div', 'hello world')
+                }
+            }
+        }
+        // 这个实现方案是 依赖收集
+        // 1) 在setup没执行之前 ， 我让当前的实例 放到全局上
+        // 2) 调用setup的时候 内部调用的钩子就可以找到当前的实力 , 让实例讲钩子收集起来
+        // 3) setup执行完毕后 将当前实例还原
+        render(h(VueComponent, {}), app)
+    </script>
+</body>
+
+</html>

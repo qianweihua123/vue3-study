@@ -1,5 +1,5 @@
 import { reactive } from "@vue/reactivity";
-import { ShapeFlags, hasOwn } from "@vue/shared";
+import { ShapeFlags, hasOwn, invokeArrayFn } from "@vue/shared";
 import { ReactiveEffect } from "packages/reactivity/src/effect";
 import { initProps } from "./componentProps";
 import { isSameVNode, Text, Fragment } from "./vnode";
@@ -354,7 +354,7 @@ export function createRenderer(options) {
     //更新下属性
     updateProps(instance.props, next.props)
 
-        // 插槽更新
+    // 插槽更新
     // 将新的children 合并到插槽中
     instance.slots = next.children; // 直接用孩子、替换掉插槽
   }
@@ -363,8 +363,13 @@ export function createRenderer(options) {
     //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
     //也就是 effect.run()执行的
     const componentFn = () => {
+      //在渲染函数执行之前处理我们收集到的sh
+      const { bm, m } = instance;
       if (!instance.isMounted) {
-        debugger
+        if (bm) {
+          //渲染之前
+          invokeArrayFn(bm);
+        }
         // 这里会做依赖收集，数据变化会再次调用effect
         //得到组件的节点树
         const subTree = render.call(instance.proxy, instance.proxy);
@@ -374,14 +379,22 @@ export function createRenderer(options) {
         instance.subTree = subTree; // 第一次渲染产生的vnode
         //标识下已经挂载过
         instance.isMounted = true;
+
+        if (m) {
+          invokeArrayFn(m);
+        }
       } else {
         //已经挂载过更新的情况
         //拿到新的节点树虚拟 dom
         //我们可以在这通过 next 是否有值，去判断是否需要更新
-        let { next } = instance;
+        let { next, bu, u } = instance;
         if (next) {
           // 如果有next 说明 属性或者插槽 更新了
           updateComponentPreRender(instance, next);
+        }
+
+        if (bu) {
+          invokeArrayFn(bu);
         }
         // 组件的更新会执行组件的 render 函数拿到新的虚拟 dom 数据结构
         const subTree = render.call(instance.proxy, instance.proxy); // 这里也更新了？
@@ -389,6 +402,10 @@ export function createRenderer(options) {
         patch(instance.subTree, subTree, container, anchor);
         //保存这一次的虚拟节点树
         instance.subTree = subTree;
+
+        if (u) {
+          invokeArrayFn(u);
+        }
       }
     }
     //生成一个组件 effect,第二个参数相当于 scheduler,c

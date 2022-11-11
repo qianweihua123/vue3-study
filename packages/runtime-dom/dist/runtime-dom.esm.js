@@ -127,6 +127,9 @@ function isString(value) {
 }
 var ownProperty = Object.prototype.hasOwnProperty;
 var hasOwn = (key, value) => ownProperty.call(value, key);
+function invokeArrayFn(fns) {
+  fns.forEach((fn) => fn());
+}
 
 // packages/reactivity/src/effect.ts
 var activeEffect;
@@ -531,6 +534,9 @@ var currentInstance;
 function setCurrentInstance(instance) {
   currentInstance = instance;
 }
+function getCurrentInstance() {
+  return currentInstance;
+}
 function createComponentInstance(vnode) {
   const instance = {
     data: {},
@@ -835,20 +841,32 @@ function createRenderer(options) {
   const setupRenderEffect = (instance, container, anchor) => {
     const { render: render3 } = instance;
     const componentFn = () => {
+      const { bm, m } = instance;
       if (!instance.isMounted) {
-        debugger;
+        if (bm) {
+          invokeArrayFn(bm);
+        }
         const subTree = render3.call(instance.proxy, instance.proxy);
         patch(null, subTree, container, anchor);
         instance.subTree = subTree;
         instance.isMounted = true;
+        if (m) {
+          invokeArrayFn(m);
+        }
       } else {
-        let { next } = instance;
+        let { next, bu, u } = instance;
         if (next) {
           updateComponentPreRender(instance, next);
+        }
+        if (bu) {
+          invokeArrayFn(bu);
         }
         const subTree = render3.call(instance.proxy, instance.proxy);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
+        if (u) {
+          invokeArrayFn(u);
+        }
       }
     };
     const effect = new ReactiveEffect(componentFn, () => {
@@ -987,6 +1005,33 @@ function getSequence(arr) {
   return result;
 }
 
+// packages/runtime-core/src/apiLifecycle.ts
+var LifecycleHoos = /* @__PURE__ */ ((LifecycleHoos2) => {
+  LifecycleHoos2["BEFORE_MOUNT"] = "bm";
+  LifecycleHoos2["MOUNTED"] = "m";
+  LifecycleHoos2["BEFORE_UPDATE"] = "bu";
+  LifecycleHoos2["UPDATED"] = "u";
+  return LifecycleHoos2;
+})(LifecycleHoos || {});
+function createHook(type) {
+  return (hook, target = currentInstance) => {
+    if (target) {
+      console.log("\u751F\u547D\u5468\u671F");
+      const wrapperHook = () => {
+        setCurrentInstance(target);
+        hook();
+        setCurrentInstance(null);
+      };
+      const hooks = target[type] || (target[type] = []);
+      hooks.push(wrapperHook);
+    }
+  };
+}
+var onBeforeMount = createHook("bm" /* BEFORE_MOUNT */);
+var onMounted = createHook("m" /* MOUNTED */);
+var onBeforeUpdate = createHook("bu" /* BEFORE_UPDATE */);
+var onUpdated = createHook("u" /* UPDATED */);
+
 // packages/runtime-dom/src/index.ts
 var renderOptions = Object.assign(nodeOps, { patchProp });
 var render = (vnode, container) => {
@@ -994,20 +1039,30 @@ var render = (vnode, container) => {
 };
 export {
   Fragment,
+  LifecycleHoos,
   ReactiveFlags,
   Text,
   computed,
+  createComponentInstance,
   createRenderer,
   createVNode,
+  currentInstance,
+  getCurrentInstance,
   h,
   isReactive,
   isRef,
   isSameVNode,
   isVNode,
+  onBeforeMount,
+  onBeforeUpdate,
+  onMounted,
+  onUpdated,
   proxyRefs,
   reactive,
   ref,
   render,
+  setCurrentInstance,
+  setupComponent,
   toRef,
   toRefs,
   unRef,

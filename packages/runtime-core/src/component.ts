@@ -10,6 +10,11 @@ export function setCurrentInstance(instance){
     currentInstance = instance;
 }
 
+export function getCurrentInstance() {
+    // 给用户在setup中使用的 可以获取当前的实例
+    return currentInstance;
+  }
+
 //创建组件实例
 export function createComponentInstance(vnode) {
     const instance = {
