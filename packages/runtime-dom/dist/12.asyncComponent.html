@@ -1,0 +1,62 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-10 22:04:54
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-11 14:43:53
+ * @FilePath: /vue-train-8/packages/runtime-dom/dist/12.asyncComponent.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script type="module">
+        //import { defineAsyncComponent, createRenderer, h, render, Text, Fragment, ref, reactive, getCurrentInstance, onMounted } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { defineAsyncComponent, h, render, Text, Fragment, ref, reactive, toRefs, getCurrentInstance, onMounted } from './runtime-dom.esm.js'
+
+        // 异步组件的好处是什么？ 如果配合 import() 语法 可以实现文件的拆分
+        // 富文本编辑器
+        // 类似于图片懒加载  我们可以先渲染一个空组件，等组件内容加载完毕后，在渲染真实的组件
+
+        let VueComponent = defineAsyncComponent({
+            // return import('./component.js')
+            loader: () => new Promise((resolve, reject) => {
+                console.log('loader....')
+                setTimeout(() => {
+                    reject({
+                        render() {
+                            return h(Text, 'hello world')
+                        }
+                    })
+                }, 3000)
+            }),
+            timeout: 2000, // 也会显示这里配置的报错组件，默认值是：Infinity
+            errorComponent: {
+                render: () => h(Text, '组件加载超时')
+            },
+            delay: 200,
+            loadingComponent: {
+                render: () => h(Text, 'loading')
+            },
+            onError(err, retry, fail) {
+                console.log('网络加载失败')
+                retry()
+            }
+        })
+        render(h(VueComponent), app)
+
+        // 为什么我需要将一个组件 渲染到其它节点上
+        // dialog 就要放到外面呢？
+
+    </script>
+</body>
+
+</html>

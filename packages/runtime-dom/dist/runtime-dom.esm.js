@@ -943,8 +943,12 @@ function createRenderer(options) {
     }
   };
   const unmount = (vnode) => {
+    debugger;
+    const { shapeFlag } = vnode;
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children);
+    } else if (shapeFlag & 6 /* COMPONENT */) {
+      return unmount(vnode.component.subTree);
     }
     hostRemove(vnode.el);
   };
@@ -1032,6 +1036,65 @@ var onMounted = createHook("m" /* MOUNTED */);
 var onBeforeUpdate = createHook("bu" /* BEFORE_UPDATE */);
 var onUpdated = createHook("u" /* UPDATED */);
 
+// packages/runtime-core/src/defineAyncComponent.ts
+function defineAsyncComponent(options) {
+  if (typeof options === "function") {
+    options = { loader: options };
+  }
+  let Component = null;
+  let timer = null;
+  let loadingTimer = null;
+  return {
+    setup() {
+      let { loader } = options;
+      const loaded = ref(false);
+      const error = ref(false);
+      const loading = ref(false);
+      function load() {
+        return loader().catch((err) => {
+          if (options.onError) {
+            return new Promise((resolve, reject) => {
+              const retry = () => resolve(load());
+              const fail = () => reject(err);
+              options.onError(err, retry, fail);
+            });
+          } else {
+            throw err;
+          }
+        });
+      }
+      if (options.delay) {
+        loadingTimer = setTimeout(() => {
+          loading.value = true;
+        }, options.delay);
+      }
+      load().then((c) => {
+        Component = c;
+        loaded.value = true;
+        clearTimeout(timer);
+      }).catch((err) => error.value = err).finally(() => {
+        loading.value = false;
+        clearTimeout(loadingTimer);
+      });
+      if (options.timeout) {
+        timer = setTimeout(() => {
+          error.value = true;
+        }, options.timeout);
+      }
+      return () => {
+        if (loaded.value) {
+          return h(Component);
+        } else if (error.value && options.errorComponent) {
+          return h(options.errorComponent);
+        } else if (loading.value && options.loadingComponent) {
+          return h(options.loadingComponent);
+        }
+        return h(Fragment, []);
+      };
+    }
+  };
+}
+
 // packages/runtime-dom/src/index.ts
 var renderOptions = Object.assign(nodeOps, { patchProp });
 var render = (vnode, container) => {
@@ -1047,6 +1110,7 @@ export {
   createRenderer,
   createVNode,
   currentInstance,
+  defineAsyncComponent,
   getCurrentInstance,
   h,
   isReactive,
