@@ -2,7 +2,7 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-11 16:24:58
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-11 16:25:03
+ * @LastEditTime: 2022-11-11 16:30:48
  * @FilePath: /vue3-study/packages/runtime-dom/dist/13.teleport.html
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -46,6 +46,10 @@
 
         // 为什么我需要将一个组件 渲染到其它节点上
         // dialog 就要放到外面呢？
+        //主要的实现就是 1 在创建虚拟节点的时候标识是 teleport 类型的 shapeFlag
+        //2.然后再 patch 的时候如果比对到当前的节点类型是 teleport,那就执行这个组件身上的 process 方法
+        //这个方法，会判断如果是首次加载，得到我们使用时候的 to 属性值，利用原生 api。document.querySelector找到目标节点，调用 mountChildren()挂载过去
+        //如果非首次加载，复用老的 target，如果不一样的情况下，重新查找，然后老老的节点移动过去
 
     </script>
 </body>
