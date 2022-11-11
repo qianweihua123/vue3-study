@@ -527,6 +527,10 @@ function initProps(instance, rawProps) {
 }
 
 // packages/runtime-core/src/component.ts
+var currentInstance;
+function setCurrentInstance(instance) {
+  currentInstance = instance;
+}
 function createComponentInstance(vnode) {
   const instance = {
     data: {},
@@ -600,7 +604,9 @@ function setupComponent(instance) {
         instance.exopsed = exopsed;
       }
     };
+    setCurrentInstance(instance);
     const setupResult = setup(instance.props, setupContext);
+    setCurrentInstance(null);
     if (isFunction(setupResult)) {
       instance.render = setupResult;
     } else {
@@ -824,6 +830,7 @@ function createRenderer(options) {
     instance.next = null;
     instance.vnode = next;
     updateProps(instance.props, next.props);
+    instance.slots = next.children;
   };
   const setupRenderEffect = (instance, container, anchor) => {
     const { render: render3 } = instance;

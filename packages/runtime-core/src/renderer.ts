@@ -353,6 +353,10 @@ export function createRenderer(options) {
     instance.vnode = next  // 用新的虚拟节点 换掉老的虚拟节点
     //更新下属性
     updateProps(instance.props, next.props)
+
+        // 插槽更新
+    // 将新的children 合并到插槽中
+    instance.slots = next.children; // 直接用孩子、替换掉插槽
   }
   const setupRenderEffect = (instance, container, anchor) => {
     const { render } = instance;

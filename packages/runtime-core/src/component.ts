@@ -3,6 +3,13 @@ import { hasOwn, isFunction, ShapeFlags } from "@vue/shared";
 import { proxyRefs } from "packages/reactivity/src/ref";
 import { initProps } from "./componentProps";
 
+export let currentInstance; //当前正在执行的实例
+
+//创建一个函数去设置当前的组件实例保存起来
+export function setCurrentInstance(instance){
+    currentInstance = instance;
+}
+
 //创建组件实例
 export function createComponentInstance(vnode) {
     const instance = {
@@ -95,8 +102,15 @@ export function setupComponent(instance) {
                 instance.exopsed = exopsed; // ref获取组件时拿到的就是exposed属性
             },
         }
+        //在调用 setup 函数之前去取赋值当前的组件实例，这样在 setup调用的时候就可以拿到当前的实例
+        setCurrentInstance(instance)
+
         //调用setup函数，第一个参数是props，第二个是 我们上面创建的执行上下文
         const setupResult = setup(instance.props, setupContext);
+
+        //等到执行完后置为空
+        setCurrentInstance(null)
+
         // setup返回的是render函数
         if (isFunction(setupResult)) {
             instance.render = setupResult;
