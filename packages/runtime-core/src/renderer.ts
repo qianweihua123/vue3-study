@@ -16,11 +16,12 @@ export function createRenderer(options) {
     setElementText: hostSetElementText,
     parentNode: hostParentNode,
     nextSibling: hostNextSibling,
+    querySelector: hostQuerySelector,
   } = options;
   //挂载子节点，内部也是循环调用 patch
-  const mountChildren = (children, el) => {
+  const mountChildren = (children, el, anchor = null) => {
     for (let i = 0; i < children.length; i++) {
-      patch(null, children[i], el);
+      patch(null, children[i], el, anchor)
     }
   };
   //卸载子节点
@@ -570,17 +571,31 @@ export function createRenderer(options) {
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           //处理组件节点
           processComponent(n1, n2, container, anchor);
+        } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          //在此处处理 teleport组件，因为它提供了一个 process方法
+          type.process(n1, n2, container, anchor, {
+            mountChildren,
+            patchChildren,
+            query: hostQuerySelector,
+            move(vnode, container, anchor) {
+              hostInsert(
+                vnode.component ? vnode.component.subTree.el : vnode.el,
+                container,
+                anchor
+              );
+            },
+          })
         }
     }
 
     // ...
   };
   const unmount = (vnode) => {
-        const { shapeFlag } = vnode;
+    const { shapeFlag } = vnode;
     // fragment卸载的时候  不是卸载的自己，而是他所有的儿子
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children);
-    } else if (shapeFlag  & ShapeFlags.COMPONENT) {
+    } else if (shapeFlag & ShapeFlags.COMPONENT) {
       return unmount(vnode.component.subTree);
     }
     hostRemove(vnode.el)

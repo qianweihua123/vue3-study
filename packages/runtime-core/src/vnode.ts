@@ -2,11 +2,12 @@
  * @Author: qwh 15806293089@163.com
  * @Date: 2022-11-02 14:21:53
  * @LastEditors: qwh 15806293089@163.com
- * @LastEditTime: 2022-11-10 10:44:16
+ * @LastEditTime: 2022-11-11 16:12:21
  * @FilePath: /vue3-study/packages/runtime-core/src/vnode.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { isObject, isString, ShapeFlags } from "@vue/shared";
+import { isTeleport } from "./teleport";
 //申明 text 类型
 export const Text = Symbol("text");
 export const Fragment = Symbol("fragment"); //文档碎片
@@ -28,6 +29,8 @@ export function createVNode(type, props = null, children = null) {
     // 用标识来区分 对应的虚拟节点类型 ， 这个表示采用的是位运算的方式 可以方便组合
     const shapeFlag = isString(type)
         ? ShapeFlags.ELEMENT
+        :isTeleport(type) // 因为teleport 也是对象 为了区分 增加标识
+        ? ShapeFlags.TELEPORT
         : isObject(type)
             ? ShapeFlags.COMPONENT
             : 0;

@@ -388,6 +388,28 @@ function doWatch(source, cb, options) {
   oldValue = effect.run();
 }
 
+// packages/runtime-core/src/teleport.ts
+var TeleportImpl = {
+  __isTeleport: true,
+  process(n1, n2, container, anchor, operators) {
+    let { mountChildren, patchChildren, move, query } = operators;
+    if (!n1) {
+      const target = n2.target = query(n2.props.to);
+      if (target) {
+        mountChildren(n2.children, target, anchor);
+      }
+    } else {
+      patchChildren(n1, n2, n1.target);
+      n2.target = n1.target;
+      if (n2.props.to !== n1.props.to) {
+        const nextTarget = n2.target = query(n2.props.to);
+        n2.children.forEach((child) => move(child, nextTarget, anchor));
+      }
+    }
+  }
+};
+var isTeleport = (type) => !!type.__isTeleport;
+
 // packages/runtime-core/src/vnode.ts
 var Text = Symbol("text");
 var Fragment = Symbol("fragment");
@@ -399,7 +421,7 @@ function isSameVNode(n1, n2) {
 }
 function createVNode(type, props = null, children = null) {
   var _a;
-  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
+  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isTeleport(type) ? 64 /* TELEPORT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
   const vnode = {
     __v_isVnode: true,
     type,
@@ -641,11 +663,12 @@ function createRenderer(options) {
     setText: hostSetText,
     setElementText: hostSetElementText,
     parentNode: hostParentNode,
-    nextSibling: hostNextSibling
+    nextSibling: hostNextSibling,
+    querySelector: hostQuerySelector
   } = options;
-  const mountChildren = (children, el) => {
+  const mountChildren = (children, el, anchor = null) => {
     for (let i = 0; i < children.length; i++) {
-      patch(null, children[i], el);
+      patch(null, children[i], el, anchor);
     }
   };
   const unmountChildren = (children) => {
@@ -939,6 +962,19 @@ function createRenderer(options) {
           processElement(n1, n2, container, anchor);
         } else if (shapeFlag & 6 /* COMPONENT */) {
           processComponent(n1, n2, container, anchor);
+        } else if (shapeFlag & 64 /* TELEPORT */) {
+          type.process(n1, n2, container, anchor, {
+            mountChildren,
+            patchChildren,
+            query: hostQuerySelector,
+            move(vnode, container2, anchor2) {
+              hostInsert(
+                vnode.component ? vnode.component.subTree.el : vnode.el,
+                container2,
+                anchor2
+              );
+            }
+          });
         }
     }
   };
@@ -1108,6 +1144,7 @@ export {
   Fragment,
   LifecycleHoos,
   ReactiveFlags,
+  TeleportImpl as Teleport,
   Text,
   computed,
   createComponentInstance,

@@ -1,0 +1,53 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-11 16:24:58
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-11 16:25:03
+ * @FilePath: /vue3-study/packages/runtime-dom/dist/13.teleport.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app" style="width: 100px;height: 100px;overflow: hidden;"></div>
+    <div id="root"></div>
+    <div id="home"></div>
+    <script type="module">
+        // import { Teleport, defineAsyncComponent, createRenderer, h, render, Text, Fragment, ref, reactive, getCurrentInstance, onMounted } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { Teleport, defineAsyncComponent, h, render, Text, Fragment, ref, reactive, toRefs, getCurrentInstance, onMounted } from './runtime-dom.esm.js'
+
+        // 异步组件的好处是什么？ 如果配合 import() 语法 可以实现文件的拆分
+        // 富文本编辑器
+        // 类似于图片懒加载  我们可以先渲染一个空组件，等组件内容加载完毕后，在渲染真实的组件
+        const VueComponent = {
+            render() {
+                return h(Fragment, [
+                    h('div', 'hello world'),
+                    h(Teleport, { to: '#root' }, [h('div', 'teleport')]),
+                    h(Teleport, { to: '#root' }, [h('div', 'teleport')])
+                ])
+            }
+        }
+
+        // render(h(Teleport, { to: '#root' }, [h('div', 'teleport')]), app)
+
+        setTimeout(() => {
+            render(h(VueComponent), app)
+            // render(h(Teleport, { to: '#home' }, [h('div', 'teleport')]), app)
+        }, 2000)
+
+        // 为什么我需要将一个组件 渲染到其它节点上
+        // dialog 就要放到外面呢？
+
+    </script>
+</body>
+
+</html>
