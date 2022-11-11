@@ -363,6 +363,8 @@ export function createRenderer(options) {
     //接下来定义一个函数，这个函数就是我们创建组件 effect 传入的第一个参数
     //也就是 effect.run()执行的
     const componentFn = () => {
+      console.log('test');
+
       //在渲染函数执行之前处理我们收集到的sh
       const { bm, m } = instance;
       if (!instance.isMounted) {
@@ -537,7 +539,6 @@ export function createRenderer(options) {
       // let instance = (n2.component = n1.component);
       // instance.props.a = n2.props.a;
       //组件更新的时候去更新属性
-      debugger
       updateComponent(n1, n2)
     }
 
@@ -575,8 +576,7 @@ export function createRenderer(options) {
     // ...
   };
   const unmount = (vnode) => {
-    debugger
-    const { shapeFlag } = vnode;
+        const { shapeFlag } = vnode;
     // fragment卸载的时候  不是卸载的自己，而是他所有的儿子
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children);

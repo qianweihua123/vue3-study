@@ -841,6 +841,7 @@ function createRenderer(options) {
   const setupRenderEffect = (instance, container, anchor) => {
     const { render: render3 } = instance;
     const componentFn = () => {
+      console.log("test");
       const { bm, m } = instance;
       if (!instance.isMounted) {
         if (bm) {
@@ -914,7 +915,6 @@ function createRenderer(options) {
     if (n1 === null) {
       mountComponent(n2, container, anchor);
     } else {
-      debugger;
       updateComponent(n1, n2);
     }
   };
@@ -943,7 +943,6 @@ function createRenderer(options) {
     }
   };
   const unmount = (vnode) => {
-    debugger;
     const { shapeFlag } = vnode;
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children);
@@ -1051,6 +1050,7 @@ function defineAsyncComponent(options) {
       const error = ref(false);
       const loading = ref(false);
       function load() {
+        debugger;
         return loader().catch((err) => {
           if (options.onError) {
             return new Promise((resolve, reject) => {
@@ -1065,6 +1065,7 @@ function defineAsyncComponent(options) {
       }
       if (options.delay) {
         loadingTimer = setTimeout(() => {
+          console.log("dealy\u6267\u884C");
           loading.value = true;
         }, options.delay);
       }
@@ -1078,6 +1079,7 @@ function defineAsyncComponent(options) {
       });
       if (options.timeout) {
         timer = setTimeout(() => {
+          console.log("\u52A0\u8F7D\u8D85\u65F6\u6267\u884C");
           error.value = true;
         }, options.timeout);
       }
@@ -1087,8 +1089,10 @@ function defineAsyncComponent(options) {
         } else if (error.value && options.errorComponent) {
           return h(options.errorComponent);
         } else if (loading.value && options.loadingComponent) {
+          console.log("\u52A0\u8F7D\u4E2D\u72B6\u6001");
           return h(options.loadingComponent);
         }
+        console.log("\u521D\u59CB\u7A7A\u8282\u70B9");
         return h(Fragment, []);
       };
     }
