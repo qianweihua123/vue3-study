@@ -16,7 +16,7 @@ export function getCurrentInstance() {
   }
 
 //创建组件实例
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode,parent) {
     const instance = {
         data: null || {}, //需要先给个默认对象，不然 null 的话报错
         isMounted: false,
@@ -30,6 +30,10 @@ export function createComponentInstance(vnode) {
         setupState: null,
         exopsed: {},
         slots: {},
+        //将组件的父子关系保存起来
+        parent,
+        //如果有 parnet属性有值，那就把父级的 provide 拿来放到子级自己身上，如果 parent没有值，那就创建一个没有原型链的对象作为值
+        provides:parent? parent.provides : Object.create(null),
     }
 
     return instance;
@@ -109,6 +113,7 @@ export function setupComponent(instance) {
         }
         //在调用 setup 函数之前去取赋值当前的组件实例，这样在 setup调用的时候就可以拿到当前的实例
         setCurrentInstance(instance)
+        console.log(instance,'程序中的组件实例');
 
         //调用setup函数，第一个参数是props，第二个是 我们上面创建的执行上下文
         const setupResult = setup(instance.props, setupContext);
