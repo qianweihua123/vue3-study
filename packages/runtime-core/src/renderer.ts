@@ -5,6 +5,7 @@ import { initProps } from "./componentProps";
 import { isSameVNode, Text, Fragment } from "./vnode";
 import { queueJob } from "./scheduler"
 import { createComponentInstance, setupComponent } from "./component";
+import { isKeepAlive } from "./keep-alive";
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -357,7 +358,8 @@ export function createRenderer(options) {
 
     // 插槽更新
     // 将新的children 合并到插槽中
-    instance.slots = next.children; // 直接用孩子、替换掉插槽
+    // instance.slots = next.children; // 直接用孩子、替换掉插槽
+    Object.assign(instance.slots, next.children);
   }
   const setupRenderEffect = (instance, container, anchor) => {
     const { render } = instance;
@@ -402,7 +404,7 @@ export function createRenderer(options) {
         // 组件的更新会执行组件的 render 函数拿到新的虚拟 dom 数据结构
         const subTree = render.call(instance.proxy, instance.proxy); // 这里也更新了？
         //进行 patch 更新
-        patch(instance.subTree, subTree, container, anchor);
+        patch(instance.subTree, subTree, container, anchor,instance);
         //保存这一次的虚拟节点树
         instance.subTree = subTree;
 
@@ -428,6 +430,16 @@ export function createRenderer(options) {
     //第一步 创建组件实例1
     const instance = (vnode.component = createComponentInstance(vnode,parent)); // 让虚拟节点知道对应的组件是谁
     //第二步给实例赋予属性
+    if (isKeepAlive(vnode)) {
+      // 给keep-alive的ctx上增添属性
+      (instance.ctx as any).renderer = {
+        createElement: hostCreateElement,
+        move(vnode, container) {
+          hostInsert(vnode.component.subTree.el, container);
+        },
+        unmount,
+      };
+    }
     setupComponent(instance)
     //第三步创建组件的 effect
     setupRenderEffect(instance, container, anchor);
@@ -532,6 +544,12 @@ export function createRenderer(options) {
   }
   const processComponent = (n1, n2, container, anchor = null,parent = null) => {
     if (n1 === null) {
+      // 在初始化组件之前我们就得判断下 keep-alive的情况，有这标识的话就不去走创建了
+      if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        // n2.component = n1.component
+        //这儿是去 keep-alive组件实例上去取出 ctx 属性，里面有一个 activate函数，这个函数是激活显示，将缓存的移动到视图中
+        return parent.ctx.activate(n2, container);
+      }
       //我们在初始化组件的时候，分为出渲染
       mountComponent(n2, container, anchor,parent)
     } else {
@@ -545,6 +563,7 @@ export function createRenderer(options) {
 
   }
   const patch = (n1, n2, container, anchor = null,parent = null) => {
+    // debugger
     if (n1 == n2) {
       return; // 无需更新
     }
@@ -591,7 +610,19 @@ export function createRenderer(options) {
     // ...
   };
   const unmount = (vnode,parent) => {
+    debugger
+     console.log(parent);
+
     const { shapeFlag } = vnode;
+    //是 keep-alive的情况下，我们不能真正的卸载，只是移动到一个缓存容器中，
+    //deactivate里面是执行 move了，去移动元素
+    if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+      // 我需要将这个真实dom 隐藏掉
+
+      // 调用当前组件的父亲的keep-alive 让取把dom隐藏掉
+      parent.ctx.deactivate(vnode);
+      return;
+    }
     // fragment卸载的时候  不是卸载的自己，而是他所有的儿子
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children,parent);
@@ -601,7 +632,6 @@ export function createRenderer(options) {
     hostRemove(vnode.el)
   };
   const render = (vnode, container,parent = null) => {
-    debugger
     if (vnode == null) {
       // 卸载：删除节点
 

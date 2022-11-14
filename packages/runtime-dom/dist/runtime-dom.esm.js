@@ -303,7 +303,6 @@ var mutableHandlers = {
     return r;
   },
   set(target, key, value, receiver) {
-    debugger;
     let oldValue = target[key];
     let result = Reflect.set(target, key, value, receiver);
     if (oldValue != value) {
@@ -574,6 +573,7 @@ function createComponentInstance(vnode, parent2) {
     exopsed: {},
     slots: {},
     parent: parent2,
+    ctx: {},
     provides: parent2 ? parent2.provides : /* @__PURE__ */ Object.create(null)
   };
   return instance;
@@ -632,7 +632,8 @@ function setupComponent(instance) {
       },
       expose(exopsed) {
         instance.exopsed = exopsed;
-      }
+      },
+      slots: children
     };
     setCurrentInstance(instance);
     console.log(instance, "\u7A0B\u5E8F\u4E2D\u7684\u7EC4\u4EF6\u5B9E\u4F8B");
@@ -654,6 +655,110 @@ function setupComponent(instance) {
     instance.render = type.render;
   }
 }
+
+// packages/runtime-core/src/apiLifecycle.ts
+var LifecycleHoos = /* @__PURE__ */ ((LifecycleHoos2) => {
+  LifecycleHoos2["BEFORE_MOUNT"] = "bm";
+  LifecycleHoos2["MOUNTED"] = "m";
+  LifecycleHoos2["BEFORE_UPDATE"] = "bu";
+  LifecycleHoos2["UPDATED"] = "u";
+  return LifecycleHoos2;
+})(LifecycleHoos || {});
+function createHook(type) {
+  return (hook, target = currentInstance) => {
+    if (target) {
+      console.log("\u751F\u547D\u5468\u671F");
+      const wrapperHook = () => {
+        setCurrentInstance(target);
+        hook();
+        setCurrentInstance(null);
+      };
+      const hooks = target[type] || (target[type] = []);
+      hooks.push(wrapperHook);
+    }
+  };
+}
+var onBeforeMount = createHook("bm" /* BEFORE_MOUNT */);
+var onMounted = createHook("m" /* MOUNTED */);
+var onBeforeUpdate = createHook("bu" /* BEFORE_UPDATE */);
+var onUpdated = createHook("u" /* UPDATED */);
+
+// packages/runtime-core/src/keep-alive.ts
+var KeepAliveImpl = {
+  __isKeepAlive: true,
+  props: {
+    include: {},
+    exclude: {},
+    max: {}
+  },
+  setup(props, { slots }) {
+    const keys = /* @__PURE__ */ new Set();
+    const cache = /* @__PURE__ */ new Map();
+    const instance = getCurrentInstance();
+    let { createElement, move, unmount } = instance.ctx.renderer;
+    let storageContainer = createElement("div");
+    instance.ctx.activate = function(vnode, container) {
+      move(vnode, container);
+    };
+    instance.ctx.deactivate = function(vnode) {
+      move(vnode, storageContainer);
+    };
+    let pendingCacheKey = null;
+    const cacheSubTree = () => {
+      if (pendingCacheKey) {
+        cache.set(pendingCacheKey, instance.subTree);
+      }
+    };
+    const _unmount = (vnode) => {
+      let shapeFlag = vnode.shapeFlag;
+      if (shapeFlag & 512 /* COMPONENT_KEPT_ALIVE */) {
+        shapeFlag -= 512 /* COMPONENT_KEPT_ALIVE */;
+      }
+      if (shapeFlag & 256 /* COMPONENT_SHOULD_KEEP_ALIVE */) {
+        shapeFlag -= 256 /* COMPONENT_SHOULD_KEEP_ALIVE */;
+      }
+      vnode.shapeFlag = shapeFlag;
+      unmount(vnode, null);
+    };
+    const pruneCaheEntry = (key) => {
+      let cached = cache.get(key);
+      cache.delete(key);
+      keys.delete(key);
+      _unmount(cached);
+    };
+    onMounted(cacheSubTree);
+    onUpdated(cacheSubTree);
+    return () => {
+      var _a;
+      let vnode = slots.default();
+      let name = vnode.type.name;
+      const { include, exclude, max } = props;
+      if (!isVNode(vnode) || !(vnode.shapeFlag & 4 /* STATEFUL_COMPONENT */)) {
+        return vnode;
+      }
+      const comp = vnode.type;
+      const key = ((_a = vnode.props) == null ? void 0 : _a.key) == null ? comp : vnode.props.key;
+      let cacheVNode = cache.get(key);
+      pendingCacheKey = key;
+      if (name && include && !include.split(",").includes(name) || exclude && exclude.split(",").includes(name)) {
+        return vnode;
+      }
+      if (cacheVNode) {
+        vnode.component = cacheVNode.component;
+        vnode.shapeFlag |= 512 /* COMPONENT_KEPT_ALIVE */;
+      } else {
+        keys.delete(key);
+        keys.add(key);
+        if (max && keys.size > max) {
+          pruneCaheEntry(keys.values().next().value);
+        }
+      }
+      vnode.shapeFlag |= 256 /* COMPONENT_SHOULD_KEEP_ALIVE */;
+      return vnode;
+    };
+  }
+};
+var isKeepAlive = (vnode) => vnode.type.__isKeepAlive;
 
 // packages/runtime-core/src/renderer.ts
 function createRenderer(options) {
@@ -862,7 +967,7 @@ function createRenderer(options) {
     instance.next = null;
     instance.vnode = next;
     updateProps(instance.props, next.props);
-    instance.slots = next.children;
+    Object.assign(instance.slots, next.children);
   };
   const setupRenderEffect = (instance, container, anchor) => {
     const { render: render3 } = instance;
@@ -889,7 +994,7 @@ function createRenderer(options) {
           invokeArrayFn(bu);
         }
         const subTree = render3.call(instance.proxy, instance.proxy);
-        patch(instance.subTree, subTree, container, anchor);
+        patch(instance.subTree, subTree, container, anchor, instance);
         instance.subTree = subTree;
         if (u) {
           invokeArrayFn(u);
@@ -904,6 +1009,15 @@ function createRenderer(options) {
   };
   const mountComponent = (vnode, container, anchor, parent2) => {
     const instance = vnode.component = createComponentInstance(vnode, parent2);
+    if (isKeepAlive(vnode)) {
+      instance.ctx.renderer = {
+        createElement: hostCreateElement,
+        move(vnode2, container2) {
+          hostInsert(vnode2.component.subTree.el, container2);
+        },
+        unmount
+      };
+    }
     setupComponent(instance);
     setupRenderEffect(instance, container, anchor);
   };
@@ -939,6 +1053,9 @@ function createRenderer(options) {
   };
   const processComponent = (n1, n2, container, anchor = null, parent2 = null) => {
     if (n1 === null) {
+      if (n2.shapeFlag & 512 /* COMPONENT_KEPT_ALIVE */) {
+        return parent2.ctx.activate(n2, container);
+      }
       mountComponent(n2, container, anchor, parent2);
     } else {
       updateComponent(n1, n2);
@@ -982,7 +1099,13 @@ function createRenderer(options) {
     }
   };
   const unmount = (vnode, parent2) => {
+    debugger;
+    console.log(parent2);
     const { shapeFlag } = vnode;
+    if (shapeFlag & 256 /* COMPONENT_SHOULD_KEEP_ALIVE */) {
+      parent2.ctx.deactivate(vnode);
+      return;
+    }
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children, parent2);
     } else if (shapeFlag & 6 /* COMPONENT */) {
@@ -991,7 +1114,6 @@ function createRenderer(options) {
     hostRemove(vnode.el);
   };
   const render2 = (vnode, container, parent2 = null) => {
-    debugger;
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, parent2);
@@ -1046,33 +1168,6 @@ function getSequence(arr) {
   }
   return result;
 }
-
-// packages/runtime-core/src/apiLifecycle.ts
-var LifecycleHoos = /* @__PURE__ */ ((LifecycleHoos2) => {
-  LifecycleHoos2["BEFORE_MOUNT"] = "bm";
-  LifecycleHoos2["MOUNTED"] = "m";
-  LifecycleHoos2["BEFORE_UPDATE"] = "bu";
-  LifecycleHoos2["UPDATED"] = "u";
-  return LifecycleHoos2;
-})(LifecycleHoos || {});
-function createHook(type) {
-  return (hook, target = currentInstance) => {
-    if (target) {
-      console.log("\u751F\u547D\u5468\u671F");
-      const wrapperHook = () => {
-        setCurrentInstance(target);
-        hook();
-        setCurrentInstance(null);
-      };
-      const hooks = target[type] || (target[type] = []);
-      hooks.push(wrapperHook);
-    }
-  };
-}
-var onBeforeMount = createHook("bm" /* BEFORE_MOUNT */);
-var onMounted = createHook("m" /* MOUNTED */);
-var onBeforeUpdate = createHook("bu" /* BEFORE_UPDATE */);
-var onUpdated = createHook("u" /* UPDATED */);
 
 // packages/runtime-core/src/defineAyncComponent.ts
 function defineAsyncComponent(options) {
@@ -1168,6 +1263,7 @@ var render = (vnode, container) => {
 };
 export {
   Fragment,
+  KeepAliveImpl as KeepAlive,
   LifecycleHoos,
   ReactiveFlags,
   TeleportImpl as Teleport,

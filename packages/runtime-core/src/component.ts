@@ -32,6 +32,7 @@ export function createComponentInstance(vnode,parent) {
         slots: {},
         //将组件的父子关系保存起来
         parent,
+        ctx: {}, // 此属性只有keep-alive有用
         //如果有 parnet属性有值，那就把父级的 provide 拿来放到子级自己身上，如果 parent没有值，那就创建一个没有原型链的对象作为值
         provides:parent? parent.provides : Object.create(null),
     }
@@ -110,6 +111,7 @@ export function setupComponent(instance) {
             expose(exopsed) {//传入一个对象，然后放到组件实例上了
                 instance.exopsed = exopsed; // ref获取组件时拿到的就是exposed属性
             },
+            slots:children
         }
         //在调用 setup 函数之前去取赋值当前的组件实例，这样在 setup调用的时候就可以拿到当前的实例
         setCurrentInstance(instance)

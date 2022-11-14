@@ -1,0 +1,286 @@
+<!--
+ * @Author: qwh 15806293089@163.com
+ * @Date: 2022-11-14 14:51:06
+ * @LastEditors: qwh 15806293089@163.com
+ * @LastEditTime: 2022-11-14 16:24:19
+ * @FilePath: /vue3-study/packages/runtime-dom/dist/15.keep-alive.html
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app">
+    </div>
+
+    <script type="module">
+        //import { KeepAlive, toRef, provide, Teleport, inject, defineAsyncComponent, createRenderer, h, render, Text, Fragment, ref, reactive, getCurrentInstance, onMounted } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+        import { KeepAlive, provide, toRef, inject, Teleport, defineAsyncComponent, h, render, Text, Fragment, ref, reactive, toRefs, getCurrentInstance, onMounted } from './runtime-dom.esm.js'
+
+
+        // include exclude max
+        const My1 = {
+            name: 'my1',
+            setup() {
+                onMounted(() => {
+                    console.log('my1 mounted')
+                })
+                return {}
+            },
+            render: () => h('div', 'my1')
+        }
+        //1 h 方法先调用的时候渲染 keepAlive
+        //1-1第一步生成的虚拟节点
+        /**
+          {
+            children: [default: () => h(My1)],包裹的内容，相当于解析成了插槽
+            type:{ //就是 keep-alive组件对象
+                props:{}
+                setup:{}
+                is__isKeepAlive
+            }，
+            prpos:{ //外部的 props
+                max
+            }
+          }
+        */
+        // 2h函数执行完毕后，执行 render 函数，传入 vnode 虚拟节点和容器
+        //2-1在render方法里面因为是首次渲染，走到初次挂载 patch(container._vnode || null, vnode, container);
+        //2-2因为 keep-alive是组件，会走到 processComponent方法,在这里面因为初次的时候并没有位运算什么的标识，直接 mountComponent
+        /**
+        * @description 描述  const processComponent = (n1, n2, container, anchor = null,parent = null) => {
+    if (n1 === null) {
+      // 在初始化组件之前我们就得判断下 keep-alive的情况，有这标识的话就不去走创建了
+      if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        // n2.component = n1.component
+        //这儿是去 keep-alive组件实例上去取出 ctx 属性，里面有一个 activate函数，这个函数是激活显示，将缓存的移动到视图中
+        return parent.ctx.activate(n2, container);
+      }
+      //我们在初始化组件的时候，分为出渲染
+      mountComponent(n2, container, anchor,parent)
+    } else {
+      // 更新
+      // 组件更新  指代的是组件的属性 更新、插槽更新,render的更新已经在 proxy 中自动触发了
+      // let instance = (n2.component = n1.component);
+      // instance.props.a = n2.props.a;
+      //组件更新的时候去更新属性
+      updateComponent(n1, n2)
+    }
+    2-3 mountComponent 在执行这的时候判断当前是 keep-alive 组件，在当前的组件实例上
+    存放 renderer 方法，里面有创建元素，move 移动，unmount 卸载
+      const mountComponent = (vnode, container, anchor,parent) => {
+    //第一步 创建组件实例1
+    const instance = (vnode.component = createComponentInstance(vnode,parent)); // 让虚拟节点知道对应的组件是谁
+    //第二步给实例赋予属性
+    if (isKeepAlive(vnode)) {
+      // 给keep-alive的ctx上增添属性
+      (instance.ctx as any).renderer = {
+        createElement: hostCreateElement,
+        move(vnode, container) {
+          hostInsert(vnode.component.subTree.el, container);
+        },
+        unmount,
+      };
+    }
+    setupComponent(instance)
+
+  }
+
+  2-4 setupComponent 这里面去初始化 props，初始化插槽，设置 currentInstance
+  然后执行 setup 方法，就是 keep-alive 组件源码定义的 setup 方法
+  在这个 setup 中定义了 keys,cache映射表，在实例的 ctx 上定义了 activate,deactivate钩子
+  在 onMounted,和 onUpdated里面给到一个设置映射表的方法
+      instance.ctx.activate = function (vnode, container) { //实例上的 ctx 属性只有 keep-alive能用，我们在上面存储 activate 方法
+      // 稍后my1 组件激活的时候 需要从缓存中拿出来就可以了
+
+      move(vnode, container); // 将刚才缓存的dom，拿到容器中
+    };
+
+    instance.ctx.deactivate = function (vnode) {//deactivate钩子，组件被切换时候的时候，将内容移动到一个容器存储
+      // 给这个虚拟节点对应的dom  移动到隐藏的盒子中就可以了
+      move(vnode, storageContainer);
+    };
+    onMounted(cacheSubTree);
+        const cacheSubTree = () => {
+      if (pendingCacheKey) {
+        cache.set(pendingCacheKey, instance.subTree);
+      }
+    };
+然后 return 返回了一个函数，作为 keep-alive组件的 render 函数，放到了 instance.render上
+
+3，然后创建组件的 effect setupRenderEffect(instance, container, anchor);
+拿到上一步放在 instance上的 render,定义一个 componentFn方法，内部
+调用了 render，生成 subtree的 ，然后 patch 去挂载，然后又 m钩子的话调用
+产生 组件effect，然后执行一下
+
+4.这个时候就执行 keep-alive的 render 了,这个 render 里面先去执行插槽函数得到插槽的虚拟节点 vnode
+  let vnode = slots.default();这个虚拟节点只有 type 有值，就是 MY1组件对象
+const comp = vnode.type;
+先尝试取出缓存，肯定是没有的，cacheVNode没有的话，我们将 key 加到 keys 里面
+然后给这个my1色组件对象加上 keep-alive的标识       vnode.shapeFlag |= ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE;
+
+5 执行完 keep-alive的 render后这个时候得到一个内部元素的 vnode(My1),组件都是执行 render 拿到里面的内容去 patch 的
+执行 patch  patch(null, subTree, container, anchor,instance);
+
+6 还是会执行 processComponent,然后执行 mountComponent,在 mountComponent之前还是会判断 keep-alive标识
+我们之前加入的是COMPONENT_SHOULD_KEEP_ALIVE;，这判断的是COMPONENT_KEPT_ALIVE，还是没有，执行 mountComponent
+
+这里面又会执行之前的步骤，创建组件实例，设置组件属性
+createComponentInstance
+setupComponent 里面又会拿到MY1里面的 render 方法 render: () => h('div', 'my1')
+setupRenderEffect 定义 componentFn函数，生成组件渲染 effect
+执行完 render 后就会再页面创建 my1 元素了，
+将这个 instance.subTree 保存 my1 的 subtrees
+        if (m) {
+          invokeArrayFn(m);
+        }
+        执行钩子函数，这个时候 MY1身上的 mount 钩子
+        执行完后，内层的子元素 patch 递归结束了，又走到 keep-alive外层
+        外层这时候也走到 if（m) invokeArrayFn(m);这个 （这里面去设置缓存了）
+
+        然后因为我们在执行 keep-aliverender 的时候将
+        pendingCacheKey = key;  它的插槽的 key 给到了这个这个时候就是 MY1的 key,它的插槽值就 MY1
+        这个时候再执行 keep-alive的onMounted的时候
+            const cacheSubTree = () => {
+      if (pendingCacheKey) {
+        cache.set(pendingCacheKey, instance.subTree);
+      }
+      这个时候 key 就是 My1这个组件对象，值是上一步 patch递归完的 subtree,
+      这个 subTree里面就是 keep-alive 里面插槽的 subTree(因为调用 keepAlive的 render 的 patch 了插槽的内容，返回的就是插槽的 sbuTree)
+    };
+
+    等到更新的时候又会重新执行上面的总流程，先执行 keep-alive的初始化
+    然后 keep-alive的 render 函数，因为第一次已经换存过了，这个时候有值，直接将原来的 com
+    赋值过去，然后加上标识COMPONENT_KEPT_ALIVE
+
+          if (cacheVNode) {//如果不是第一次缓存的话（之前已经存储过）
+        // 复用组件的实例，告诉这个组件不要在渲染了
+        vnode.component = cacheVNode.component; //去缓存中拿到 component里面的内容给到现在的虚拟节点的component属性上
+        vnode.shapeFlag |= ShapeFlags.COMPONENT_KEPT_ALIVE; //位运算加上 keep-alive类型，稍后会用到去判断不用真正的创建
+      }
+
+      上面的标识有了后，等到 keep-alive的 render调用拿到第一个插槽内容，
+      插槽会递归初始化，又会执行 processComponent,这个时候上一步给到标识了
+      不会真正创建，之后执行 activate,这里面去 move 复用的内容显示了
+      move是拿到真实节点去插入
+           move(vnode, container) {
+          hostInsert(vnode.component.subTree.el, container);
+        },
+        const processComponent = (n1, n2, container, anchor = null,parent = null) => {
+    if (n1 === null) {
+      // 在初始化组件之前我们就得判断下 keep-alive的情况，有这标识的话就不去走创建了
+      if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        // n2.component = n1.component
+        //这儿是去 keep-alive组件实例上去取出 ctx 属性，里面有一个 activate函数，这个函数是激活显示，将缓存的移动到视图中
+        return parent.ctx.activate(n2, container);
+      }
+      //我们在初始化组件的时候，分为出渲染
+      mountComponent(n2, container, anchor,parent)
+    } else {
+      // 更新
+      // 组件更新  指代的是组件的属性 更新、插槽更新,render的更新已经在 proxy 中自动触发了
+      // let instance = (n2.component = n1.component);
+      // instance.props.a = n2.props.a;
+      //组件更新的时候去更新属性
+      updateComponent(n1, n2)
+    }
+
+
+    当我们转换内容的了，内部 patch 的时候也不会真的卸载只是 umount的时候移动到一个缓存容器
+      const unmount = (vnode,parent) => {
+    const { shapeFlag } = vnode;
+    //是 keep-alive的情况下，我们不能真正的卸载，只是移动到一个缓存容器中，
+    //deactivate里面是执行 move了，去移动元素
+    if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+      // 我需要将这个真实dom 隐藏掉
+
+      // 调用当前组件的父亲的keep-alive 让取把dom隐藏掉
+      parent.ctx.deactivate(vnode);
+      return;
+    }
+    // fragment卸载的时候  不是卸载的自己，而是他所有的儿子
+    if (vnode.type === Fragment) {
+      return unmountChildren(vnode.children,parent);
+    } else if (shapeFlag & ShapeFlags.COMPONENT) {
+      return unmount(vnode.component.subTree,parent);
+    }
+    hostRemove(vnode.el)
+  };
+  }
+        */
+        render(h(KeepAlive, { max: 2 }, {
+            default: () => h(My1)
+        }), app)
+
+
+        const My2 = {
+            name: 'my2',
+            setup() {
+                onMounted(() => {
+                    console.log('my2 mounted')
+                })
+                return {}
+            },
+            render: () => h('div', 'my2')
+        }
+
+        // const My3 = {
+        //     name: 'my3',
+        //     setup() {
+        //         onMounted(() => {
+        //             console.log('my3 mounted')
+        //         })
+        //         return {}
+        //     },
+        //     render: () => h('div', 'my3')
+        // }
+        setTimeout(() => {
+            console.log('渲染 my2');
+
+            render(h(KeepAlive, { max: 2 }, {
+                default: () => h(My2)
+            }), app)
+        }, 2000)
+
+        // setTimeout(() => {
+        //     render(h(KeepAlive, { max: 2 }, {
+        //         default: () => h(My3)
+        //     }), app)
+        // }, 2000)
+
+        setTimeout(() => {
+            console.log('再次渲染 my1');
+
+            render(h(KeepAlive, { max: 2 }, {
+                default: () => h(My1)
+            }), app)
+        }, 4000)
+
+
+        // max = 2 . 算法 lru算法
+        // [my3,my2]
+        // my1 -> my2 -> my3 -> my2
+
+
+        // setTimeout(() => {
+        //     render(h(KeepAlive, { exclude: 'my1',max: 2 }, {
+        //         default: () => h(My2)
+        //     }), app)
+        // }, 3000)
+
+        // render(h(App), app)
+
+
+
+
+    </script>
+</body>
+
+</html>
